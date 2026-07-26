@@ -11,7 +11,7 @@ LESSONS = [
     dict(id="l2", em="🎨", short="LED 畫畫板", title="LED 畫畫板",
          sub="用 25 顆燈畫圖、做動畫", status="open"),
     dict(id="l3", em="🅰️", short="按鈕魔法", title="按鈕魔法", sub="按 A、按 B 做不同的事", status="open"),
-    dict(id="l4", em="🔢", short="神奇計數器", title="神奇計數器", sub="學會「變數」，按一下加一", status="soon"),
+    dict(id="l4", em="🔢", short="神奇計數器", title="神奇計數器", sub="學會「變數」，按一下加一", status="open"),
     dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="soon"),
     dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="soon"),
     dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="soon"),
@@ -82,6 +82,7 @@ SMILE = "#...#\n.....\n#...#\n#...#\n.###."
 SAD   = "#...#\n.....\n#...#\n.###.\n#...#"
 DUCK  = ".##..\n####.\n.####\n.###.\n....."
 ARROW = "..#..\n.###.\n#.#.#\n..#..\n..#.."
+THREE = ".###.\n....#\n..##.\n....#\n.###."
 
 def checklist(lesson_id, items):
     out = ['<ul class="check">']
@@ -323,8 +324,70 @@ def build_l3():
     )
     open(os.path.join(REPO, "l3.html"), "w").write(page("l3", body, "第 3 課：按鈕魔法", ' data-lesson="l3"'))
 
+# ================= 第 4 課 =================
+def build_l4():
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 4 課</div>'
+        '<span class="eyebrow">第 4 課</span>' + done_badge() +
+        '<h1>🔢 神奇計數器</h1>'
+        '<div class="goal"><div class="big">🔢</div><div><h3>這一課要做到</h3>'
+        '<p>做一個<b>計數器</b>：每按一下 A 就<b>加 1</b>，數字顯示在螢幕上——數跳繩、數敲門都行！</p></div></div>'
+
+        '<h2>1. 變數是什麼？</h2>'
+        '<p>變數就像一個<b>小盒子</b>📦，裡面裝一個數字。你可以<b>看</b>盒子裡是多少，也可以<b>換掉</b>裡面的數字。'
+        '我們要用一個盒子，把「按了幾下」記住。</p>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 玩遊戲會用「<b>分數</b>」變數，答對就「<b>分數改變 1</b>」；micro:bit 一模一樣——'
+        '一樣在<b>「變數」</b>抽屜，一樣可以「設定」和「改變」。</div>'
+
+        '<h2>2. 做一個盒子（建立變數）📦</h2>'
+        '<p>在左邊<b>橘色「變數」</b>抽屜，按<b>「建立一個變數」</b>，取名叫 <code>count</code>（計數的意思）。'
+        '然後一開機先把盒子<b>歸零</b>：</p>'
+        + prog(
+            blk("basic", "基本", slot("當程式開始"), hat=True,
+                nest_html=blk("var", "變數", "設定 ", slot("count"), " 為 ", slot("0"))),
+        ) +
+        '<div class="note"><span class="hd">💡 「設定」= 把盒子換成這個數字</span>'
+        '「設定 count 為 0」就是把盒子裡的數字<b>直接換成 0</b>，不管本來是多少。</div>'
+
+        '<h2>3. 按一下，加一個 ➕</h2>'
+        '<p>按 A 的時候，讓盒子<b>改變 1</b>（就是加 1），再把盒子裡的數字<b>顯示</b>出來：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=blk("var", "變數", slot("count"), " 改變 ", slot("1")) +
+                          blk("basic", "基本", "顯示數字 ", slot("count"))),
+        ) +
+        '<p>按一下 → 1，再按 → 2，再按 → 3⋯⋯盒子會一直<b>記住</b>！</p>'
+        + leds(THREE, "按了 3 下 → 顯示 3") +
+        '<div class="note"><span class="hd">✨ 「改變 1」和「設定」不一樣</span>'
+        '「<b>改變 1</b>」是在<b>原本的數字上再加 1</b>（3 變 4）；「設定」是<b>整個換掉</b>。這是最重要的分別喔！</div>'
+
+        '<h2>4. 按 B 重來（歸零）🔄</h2>'
+        '<p>數字太大想重數？讓 B 把盒子<b>設定回 0</b>：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("B", True), " 被按下", hat=True,
+                nest_html=blk("var", "變數", "設定 ", slot("count"), " 為 ", slot("0")) +
+                          blk("basic", "基本", "顯示數字 ", slot("count"))),
+        ) +
+
+        '<div class="try"><h3>🎯 試試看（換你設計）</h3><ol>'
+        '<li>把「改變 1」改成「<b>改變 2</b>」，看看每按一下跳多少。</li>'
+        '<li>做一個<b>比分板</b>：A 加 1 分、B <b>減 1 分</b>（改變 <code>-1</code>）。</li>'
+        '<li>挑戰：按 A＋B 一起時，顯示一顆愛心說「你好棒」❤️。</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l4", [
+            "我知道變數是一個會記住數字的小盒子",
+            "我會用「建立變數」做一個 count，並在開機時設定為 0",
+            "我分得出「改變 1（加上去）」和「設定（換掉）」不一樣",
+        ]) +
+        nav_for("l4")
+    )
+    open(os.path.join(REPO, "l4.html"), "w").write(page("l4", body, "第 4 課：神奇計數器", ' data-lesson="l4"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")
