@@ -12,7 +12,7 @@ LESSONS = [
          sub="用 25 顆燈畫圖、做動畫", status="open"),
     dict(id="l3", em="🅰️", short="按鈕魔法", title="按鈕魔法", sub="按 A、按 B 做不同的事", status="open"),
     dict(id="l4", em="🔢", short="神奇計數器", title="神奇計數器", sub="學會「變數」，按一下加一", status="open"),
-    dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="soon"),
+    dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="open"),
     dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="soon"),
     dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="soon"),
     dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="soon"),
@@ -83,6 +83,8 @@ SAD   = "#...#\n.....\n#...#\n.###.\n#...#"
 DUCK  = ".##..\n####.\n.####\n.###.\n....."
 ARROW = "..#..\n.###.\n#.#.#\n..#..\n..#.."
 THREE = ".###.\n....#\n..##.\n....#\n.###."
+EMPTY = ".....\n.....\n.....\n.....\n....."
+STAR  = "..#..\n#####\n.###.\n.#.#.\n#...#"
 
 def checklist(lesson_id, items):
     out = ['<ul class="check">']
@@ -386,8 +388,76 @@ def build_l4():
     )
     open(os.path.join(REPO, "l4.html"), "w").write(page("l4", body, "第 4 課：神奇計數器", ' data-lesson="l4"'))
 
+# ================= 第 5 課 =================
+def build_l5():
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 5 課</div>'
+        '<span class="eyebrow">第 5 課</span>' + done_badge() +
+        '<h1>🔁 重複的力量</h1>'
+        '<div class="goal"><div class="big">🔁</div><div><h3>這一課要做到</h3>'
+        '<p>用「<b>重複</b>」讓 micro:bit 自己做很多次——做一個<b>閃爍的星星</b>，還會<b>自動數數</b>！</p></div></div>'
+
+        '<h2>1. 為什麼要「重複」？</h2>'
+        '<p>想讓星星閃 4 次，難道要拼 4 遍一樣的積木嗎？太累了！🥱 聰明的程式設計師會用「<b>重複</b>」——'
+        '只拼<b>一次</b>，告訴 micro:bit「做 4 遍」就好。<b>偷懶，其實是變聰明！</b></p>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 有「<b>重複 10 次</b>」的積木，把別的積木夾在中間；micro:bit 的「<b>重複 4 次</b>」長得幾乎一樣，'
+        '一樣在<b>綠色</b>的抽屜（這裡叫「迴圈」）。</div>'
+
+        '<h2>2. 閃爍的星星 ⭐</h2>'
+        '<p>「閃爍」就是<b>亮一下、暗一下</b>，一直換。用<b>綠色「迴圈」</b>的「重複 4 次」把它包起來：</p>'
+        + prog(
+            blk("loop", "迴圈", "重複 ", slot("4"), " 次", hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("⭐")) +
+                          blk("basic", "基本", "暫停 ", slot("300"), " 毫秒") +
+                          blk("basic", "基本", "清除螢幕") +
+                          blk("basic", "基本", "暫停 ", slot("300"), " 毫秒")),
+        ) +
+        '<p>它會亮、暗、亮、暗⋯⋯做完 <b>4 遍</b>就停下來：</p>'
+        + leds(STAR, "亮 ✨") + leds(EMPTY, "暗 🌑") +
+        '<div class="note"><span class="hd">💡 「清除螢幕」= 把燈全部關掉</span>'
+        '在「基本」抽屜裡。有亮有暗，才看得出來在<b>閃</b>！</div>'
+
+        '<h2>3. 「重複 N 次」和「重複無限次」有什麼不同？</h2>'
+        '<p>你在第 2 課用過「<b>重複無限次</b>」對不對？它們是兄弟，但個性不一樣：</p>'
+        + prog(blk("loop", "迴圈", "重複 ", slot("4"), " 次", hat=True,
+                   nest_html=blk("basic", "基本", "⋯做完 4 遍就 停 ✋")))
+        + prog(blk("loop", "迴圈", "重複無限次", hat=True,
+                   nest_html=blk("basic", "基本", "⋯永遠做下去，不會停 ♾️")))
+        + '<div class="tip"><span class="hd">🤔 什麼時候用哪一個？</span>'
+        '想做<b>固定次數</b>（閃 3 下、跳 5 下）用「<b>重複 N 次</b>」；'
+        '想<b>一直不停</b>（心跳燈、時鐘）用「<b>重複無限次</b>」。</div>'
+
+        '<h2>4. 重複 ＋ 變數 = 自動數數 🔢</h2>'
+        '<p>還記得第 4 課的盒子 <code>count</code> 嗎？把它放進迴圈，micro:bit 就會<b>自己</b>從 1 數到 5：</p>'
+        + prog(
+            blk("basic", "基本", slot("當程式開始"), hat=True,
+                nest_html=blk("var", "變數", "設定 ", slot("count"), " 為 ", slot("0")) +
+                          blk("loop", "迴圈", "重複 ", slot("5"), " 次",
+                              nest_html=blk("var", "變數", slot("count"), " 改變 ", slot("1")) +
+                                        blk("basic", "基本", "顯示數字 ", slot("count")) +
+                                        blk("basic", "基本", "暫停 ", slot("300"), " 毫秒"))),
+        )
+        + '<p>螢幕會自己跑出 1、2、3、4、5——你完全沒有按按鈕喔！✨</p>'
+
+        '<div class="try"><h3>🎯 試試看（換你控制）</h3><ol>'
+        '<li>把星星改成<b>閃 10 次</b>（改「重複」的數字）。</li>'
+        '<li>把暫停改成 <code>100</code>，看它閃得多快！</li>'
+        '<li>用「<b>重複無限次</b>」做一顆<b>永遠跳動</b>的愛心（回顧第 2 課）。</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l5", [
+            "我知道「重複」可以少拼很多積木、做很多次",
+            "我會用「重複 N 次」做閃爍，做完固定次數就停",
+            "我分得出「重複 N 次（會停）」和「重複無限次（不停）」",
+        ]) +
+        nav_for("l5")
+    )
+    open(os.path.join(REPO, "l5.html"), "w").write(page("l5", body, "第 5 課：重複的力量", ' data-lesson="l5"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3(); build_l4()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")
