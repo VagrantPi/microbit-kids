@@ -15,7 +15,7 @@ LESSONS = [
     dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="open"),
     dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="open"),
     dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="open"),
-    dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="soon"),
+    dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="open"),
     dict(id="l9", em="🏆", short="電子寵物", title="電子寵物大挑戰", sub="把學會的通通用上！", status="soon"),
 ]
 
@@ -88,6 +88,7 @@ STAR  = "..#..\n#####\n.###.\n.#.#.\n#...#"
 DICE6 = "#...#\n.....\n#...#\n.....\n#...#"
 ARROW_L = "..#..\n.#...\n#####\n.#...\n..#.."
 ARROW_R = "..#..\n...#.\n#####\n...#.\n..#.."
+NOTE  = "...##\n...#.\n...#.\n##.#.\n##..."
 
 def checklist(lesson_id, items):
     out = ['<ul class="check">']
@@ -598,8 +599,75 @@ def build_l7():
     )
     open(os.path.join(REPO, "l7.html"), "w").write(page("l7", body, "第 7 課：神奇感測器", ' data-lesson="l7"'))
 
+# ================= 第 8 課 =================
+def build_l8():
+    def tone(note, beat="1"):
+        return blk("music", "音樂", "播放音調 ", slot(note), " 持續 ", slot(beat), " 拍")
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 8 課</div>'
+        '<span class="eyebrow">第 8 課</span>' + done_badge() +
+        '<h1>🎵 音樂盒</h1>'
+        '<div class="goal"><div class="big">🎹</div><div><h3>這一課要做到</h3>'
+        '<p>讓 micro:bit <b>唱歌</b>！按按鈕彈出音符，做一台自己的<b>小鋼琴</b>。</p></div></div>'
+
+        '<h2>1. micro:bit 會唱歌 🎤</h2>'
+        '<p>前面都在玩「看」的（燈），這一課換「<b>聽</b>」的！音樂積木在<b>桃紅色「音樂」</b>抽屜裡。</p>'
+        '<div class="note"><span class="hd">🔊 聽得到聲音嗎？</span>'
+        '<b>模擬器</b>直接就有聲音 🔈。真的板子：<b>新款（V2）</b>有內建小喇叭，直接聽得到；'
+        '<b>舊款（V1）</b>要用鱷魚夾接<b>耳機或小喇叭</b>才會響。</div>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 有「<b>彈奏音符</b>」「<b>播放音效</b>」；micro:bit 的「<b>播放音調</b>」一模一樣——'
+        '選一個音、決定它<b>多長</b>，就唱出來。</div>'
+
+        '<h2>2. 先彈一個音 🎵</h2>'
+        '<p>按 A，彈出「中央 C」（也就是 <b>Do</b>），持續 1 拍：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=tone("中央 C")),
+        ) +
+        '<div class="tip"><span class="hd">🎼 「拍」是什麼？</span>'
+        '「拍」是聲音的<b>長短</b>。1 拍普通長、½ 拍短短的、2 拍長長的。點積木上的音符可以換<b>不同的音</b>（Do Re Mi…）。</div>'
+
+        '<h2>3. 做一台小鋼琴 🎹</h2>'
+        '<p>不同按鈕給不同的音，還一邊<b>顯示琴鍵號碼</b>——就是一台會發光的小鋼琴：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=tone("中央 C") + blk("basic", "基本", "顯示數字 ", slot("1"))),
+        )
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("B", True), " 被按下", hat=True,
+                nest_html=tone("中央 E") + blk("basic", "基本", "顯示數字 ", slot("3"))),
+        ) +
+        '<p>再加一個 <b>A＋B</b> 給第三個音（中央 G＝ So），你就有三個琴鍵啦！</p>'
+        + leds(NOTE, "唱歌的時候放一個音符圖 🎶") +
+
+        '<h2>4. 播放一小段旋律 🎶</h2>'
+        '<p>把好幾個音<b>排在一起</b>，就變成一首小曲子。試試最有名的 <b>Do–Re–Mi–Fa–So</b>：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A+B", True), " 被按下", hat=True,
+                nest_html=tone("中央 C") + tone("中央 D") + tone("中央 E") + tone("中央 F") + tone("中央 G")),
+        ) +
+        '<div class="note"><span class="hd">✨ 偷懶小技巧</span>'
+        '「音樂」抽屜裡還有<b>「播放旋律」</b>，內建了「生日快樂」「叮咚」等現成曲子，點一下就會唱！</div>'
+
+        '<div class="try"><h3>🎯 試試看（換你當作曲家）</h3><ol>'
+        '<li>把小鋼琴的音<b>換成別的</b>（Re、Fa、La…），彈出你喜歡的聲音。</li>'
+        '<li>把某個音改成 <b>½ 拍</b>或 <b>2 拍</b>，聽長短有什麼不同。</li>'
+        '<li>大挑戰：<b>邊唱邊演</b>——放旋律的同時，用「顯示圖示」讓愛心、音符<b>跟著跳動</b>，做一支 MV！</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l8", [
+            "我知道音樂積木在「音樂」抽屜，模擬器直接有聲音",
+            "我會用「播放音調」彈出一個音，也會換音和換拍子",
+            "我把好幾個音排在一起，做出一小段旋律",
+        ]) +
+        nav_for("l8")
+    )
+    open(os.path.join(REPO, "l8.html"), "w").write(page("l8", body, "第 8 課：音樂盒", ' data-lesson="l8"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7(); build_l8()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")
