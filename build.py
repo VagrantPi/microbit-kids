@@ -13,7 +13,7 @@ LESSONS = [
     dict(id="l3", em="🅰️", short="按鈕魔法", title="按鈕魔法", sub="按 A、按 B 做不同的事", status="open"),
     dict(id="l4", em="🔢", short="神奇計數器", title="神奇計數器", sub="學會「變數」，按一下加一", status="open"),
     dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="open"),
-    dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="soon"),
+    dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="open"),
     dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="soon"),
     dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="soon"),
     dict(id="l9", em="🏆", short="電子寵物", title="電子寵物大挑戰", sub="把學會的通通用上！", status="soon"),
@@ -85,6 +85,7 @@ ARROW = "..#..\n.###.\n#.#.#\n..#..\n..#.."
 THREE = ".###.\n....#\n..##.\n....#\n.###."
 EMPTY = ".....\n.....\n.....\n.....\n....."
 STAR  = "..#..\n#####\n.###.\n.#.#.\n#...#"
+DICE6 = "#...#\n.....\n#...#\n.....\n#...#"
 
 def checklist(lesson_id, items):
     out = ['<ul class="check">']
@@ -456,8 +457,73 @@ def build_l5():
     )
     open(os.path.join(REPO, "l5.html"), "w").write(page("l5", body, "第 5 課：重複的力量", ' data-lesson="l5"'))
 
+# ================= 第 6 課 =================
+def build_l6():
+    rand16 = blk("math", "數學", "取隨機數 ", slot("1"), " 到 ", slot("6"))
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 6 課</div>'
+        '<span class="eyebrow">第 6 課</span>' + done_badge() +
+        '<h1>🎲 搖一搖骰子</h1>'
+        '<div class="goal"><div class="big">🎲</div><div><h3>這一課要做到</h3>'
+        '<p><b>搖一搖</b> micro:bit，它就像骰子一樣跳出 <b>1～6</b> 的點數，還會在骰到 6 的時候<b>幫你慶祝</b>！</p></div></div>'
+
+        '<h2>1. 什麼是「亂數」？🎰</h2>'
+        '<p>骰子好玩，是因為<b>每次都不一定</b>。電腦也會這一招，叫做「<b>亂數</b>」——'
+        '你跟它要一個 1 到 6 的數字，它每次都<b>隨機</b>給你一個，事先誰也不知道！</p>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 有「<b>在 1 到 6 之間隨機選一個數</b>」；micro:bit 換成<b>紫色「數學」</b>抽屜裡的'
+        '「<b>取隨機數 1 到 6</b>」，一樣是抽一個驚喜數字。</div>'
+        + prog(rand16) +
+
+        '<h2>2. 搖一搖，擲骰子 🤳</h2>'
+        '<p>用第 3 課學的<b>事件</b>，這次選「<b>當搖動</b>」。搖一下，就把那個隨機數字<b>顯示</b>出來：</p>'
+        + prog(
+            blk("event", "輸入", "當搖動", hat=True,
+                nest_html=blk("basic", "基本", "顯示數字 ", rand16)),
+        ) +
+        '<p>拿起真的板子甩一下（或在模擬器搖晃它），數字就會跳出來：</p>'
+        + leds(THREE, "搖出 3！再搖會變別的") +
+        '<div class="note"><span class="hd">💡 隨機數字塞進哪裡？</span>'
+        '把紫色的「取隨機數」積木，<b>拖進</b>「顯示數字」的白色圈圈裡，它們就會合體變成一塊！</div>'
+
+        '<h2>3. 骰到 6 就慶祝！用 <span style="color:var(--c-logic)">如果／否則</span> 判斷 🎉</h2>'
+        '<p>骰子不只會顯示數字，還會<b>判斷</b>。我們讓它：骰到 <b>6</b> 顯示愛心慶祝，<b>其他</b>就顯示點數。</p>'
+        '<p>先用一個盒子 <code>dice</code> 記住這次搖到幾，再用<b>青色「邏輯」</b>的「如果／否則」判斷：</p>'
+        + prog(
+            blk("event", "輸入", "當搖動", hat=True,
+                nest_html=blk("var", "變數", "設定 ", slot("dice"), " 為 ", rand16) +
+                          blk("logic", "邏輯", "如果 ", slot("dice"), " = ", slot("6"), " 那麼",
+                              nest_html=blk("basic", "基本", "顯示圖示 ", slot("❤️"))) +
+                          blk("logic", "邏輯", "否則",
+                              nest_html=blk("basic", "基本", "顯示數字 ", slot("dice")))),
+        ) +
+        '<div class="tip"><span class="hd">🤔 「如果／否則」在做什麼？</span>'
+        '它像一個<b>岔路口</b>：條件成立（骰到 6）走「那麼」這條路；不成立就走「否則」那條路。'
+        '每次只會走<b>其中一條</b>。這就是第 4 課提過的「<b>= 是在比較</b>」，不是設定喔！</div>'
+
+        '<h2>4. 進階：真的骰子點點 🎲</h2>'
+        '<p>想更像真骰子嗎？可以用「顯示 LED」把<b>點點</b>畫出來（像下面的 6 點）。'
+        '搭配好幾個「如果」判斷 1～6，各顯示不同的點點圖案——這是給你的<b>大挑戰</b>！</p>'
+        + leds(DICE6, "六點的樣子") +
+
+        '<div class="try"><h3>🎯 試試看（換你當骰子大師）</h3><ol>'
+        '<li>把骰子改成<b>抽籤機</b>：取隨機數 <b>1 到 100</b>，搖一搖抽一個號碼。</li>'
+        '<li>骰到 <b>1</b> 的時候顯示哭臉 😢（再加一個「如果」）。</li>'
+        '<li>大挑戰：做<b>剪刀石頭布</b>——隨機 1～3，用「如果／否則」分別顯示剪刀 ✌️、石頭 ✊、布 ✋！（第 9 課會用到）</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l6", [
+            "我知道「亂數」是電腦每次隨機給的驚喜數字",
+            "我會用「當搖動」＋「取隨機數 1 到 6」做電子骰子",
+            "我會用「如果／否則」讓程式走不同的路（骰到 6 就慶祝）",
+        ]) +
+        nav_for("l6")
+    )
+    open(os.path.join(REPO, "l6.html"), "w").write(page("l6", body, "第 6 課：搖一搖骰子", ' data-lesson="l6"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")

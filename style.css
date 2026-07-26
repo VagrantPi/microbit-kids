@@ -104,6 +104,7 @@ html[data-theme=dark] .prog{background:#241d42;border-color:#39306a}
 .block .slot.round{border-radius:999px}
 .hat{border-top-left-radius:22px;border-top-right-radius:22px;padding-top:14px;font-weight:800}
 .nest{margin-left:22px;border-left:5px solid rgba(0,0,0,.14);padding-left:12px}
+.block .block{margin:0;box-shadow:0 2px 0 rgba(0,0,0,.2);padding:4px 9px;font-size:14px}
 .b-event{--bc:var(--c-event)} .b-basic{--bc:var(--c-basic)} .b-led{--bc:var(--c-led)}
 .b-loop{--bc:var(--c-loop)} .b-logic{--bc:var(--c-logic)} .b-var{--bc:var(--c-var)}
 .b-math{--bc:var(--c-math)} .b-music{--bc:var(--c-music)} .b-radio{--bc:var(--c-radio)} .b-game{--bc:var(--c-game)}
