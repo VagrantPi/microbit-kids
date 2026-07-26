@@ -16,7 +16,7 @@ LESSONS = [
     dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="open"),
     dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="open"),
     dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="open"),
-    dict(id="l9", em="🏆", short="電子寵物", title="電子寵物大挑戰", sub="把學會的通通用上！", status="soon"),
+    dict(id="l9", em="🏆", short="電子寵物", title="電子寵物大挑戰", sub="把學會的通通用上！", status="open"),
 ]
 
 # ===== 小工具 =====
@@ -666,8 +666,94 @@ def build_l8():
     )
     open(os.path.join(REPO, "l8.html"), "w").write(page("l8", body, "第 8 課：音樂盒", ' data-lesson="l8"'))
 
+# ================= 第 9 課（綜合專題）=================
+def build_l9():
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 9 課</div>'
+        '<span class="eyebrow">第 9 課 · 大魔王關</span>' + done_badge() +
+        '<h1>🏆 電子寵物大挑戰</h1>'
+        '<div class="goal"><div class="big">🐣</div><div><h3>這一課要做到</h3>'
+        '<p>做一隻<b>真的電子寵物</b>！它會<b>肚子餓</b>、會<b>開心</b>，需要你<b>餵它、陪它玩</b>——'
+        '把前面 8 課學的通通用上！</p></div></div>'
+
+        '<div class="pill" style="justify-content:flex-start">'
+        '<span>💡 LED 表情</span><span>🅰️ 按鈕餵食</span><span>🔢 變數：開心值</span>'
+        '<span>🔁 重複無限次</span><span>🎲 亂數</span><span>🤔 如果／否則</span>'
+        '<span>🤸 搖一搖</span><span>🎵 叫聲</span></div>'
+        '<p class="lead">看到沒？這一關會用到<b>每一課</b>的魔法。我們一塊一塊拼起來。</p>'
+
+        '<h2>1. 寵物的心情盒子 🔢</h2>'
+        '<p>先做一個盒子 <code>happy</code>（開心值），數字<b>越大越開心</b>。一開機給它 <b>5</b>（普通心情），'
+        '並顯示一張笑臉：</p>'
+        + prog(
+            blk("basic", "基本", slot("當程式開始"), hat=True,
+                nest_html=blk("var", "變數", "設定 ", slot("happy"), " 為 ", slot("5")) +
+                          blk("basic", "基本", "顯示圖示 ", slot("😀"))),
+        ) +
+
+        '<h2>2. 餵食：按 A 就加開心 🍎</h2>'
+        '<p>按 A 餵一口，開心值<b>加 1</b>，發出「叮」一聲，還露出好吃的表情：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=blk("var", "變數", slot("happy"), " 改變 ", slot("1")) +
+                          blk("music", "音樂", "播放音調 ", slot("中央 C"), " 持續 ", slot("½"), " 拍") +
+                          blk("basic", "基本", "顯示圖示 ", slot("😋"))),
+        ) +
+
+        '<h2>3. 陪玩：搖一搖一起玩 🤸</h2>'
+        '<p>用第 7 課的<b>搖動</b>，搖一搖就是陪牠玩，一樣加開心：</p>'
+        + prog(
+            blk("event", "輸入", "當搖動", hat=True,
+                nest_html=blk("var", "變數", slot("happy"), " 改變 ", slot("1")) +
+                          blk("basic", "基本", "顯示圖示 ", slot("😆"))),
+        ) +
+
+        '<h2>4. 肚子會餓＋看心情 🍽️</h2>'
+        '<p>寵物如果都不理牠，會<b>慢慢餓</b>（開心值減少）。用<b>重複無限次</b>：每過一下下就餓一點，'
+        '再用<b>如果／否則</b>決定要笑臉還是哭臉：</p>'
+        + prog(
+            blk("loop", "迴圈", "重複無限次", hat=True,
+                nest_html=blk("basic", "基本", "暫停 ", slot("5000"), " 毫秒") +
+                          blk("var", "變數", slot("happy"), " 改變 ", slot("-1")) +
+                          blk("logic", "邏輯", "如果 ", slot("happy"), " ≥ ", slot("4"), " 那麼",
+                              nest_html=blk("basic", "基本", "顯示圖示 ", slot("😀"))) +
+                          blk("logic", "邏輯", "否則",
+                              nest_html=blk("basic", "基本", "顯示圖示 ", slot("😢")))),
+        ) +
+        '<p>開心值高就笑 😀、太低就難過 😢——你要一直照顧牠，牠才會開心！</p>'
+        + leds(SMILE, "有照顧 → 開心") + leds(SAD, "太久沒理 → 難過") +
+        '<div class="tip"><span class="hd">🧩 好多「帽子」一起跑！</span>'
+        '這一隻寵物有<b>好幾塊帽子積木</b>：開機、按 A、搖一搖、重複無限次⋯⋯它們會<b>同時</b>運作，'
+        '就像寵物<b>同時</b>會被餵、會肚子餓、會表現心情。這就是把每一課合起來的威力！</div>'
+
+        '<h2>5. 換你讓牠更厲害 🚀</h2>'
+        '<div class="try"><h3>🎯 加料挑戰（挑幾個來做）</h3><ol>'
+        '<li><b>會生病</b>：如果 happy 太低（例如 &lt; 2）就顯示骷髏 💀，提醒你快餵牠。</li>'
+        '<li><b>會太飽</b>：happy 最多到 10 就好——用「如果 happy &gt; 10 就設定回 10」。</li>'
+        '<li><b>隨機小驚喜</b>：用第 6 課的<b>亂數</b>，讓寵物偶爾自己做一個表情或叫一聲。</li>'
+        '<li><b>幫牠取名字</b>：開機時先用「顯示文字」跑出寵物的名字。</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l9", [
+            "我用一個變數（happy）當寵物的心情",
+            "我用按鈕和搖動照顧牠，用重複無限次讓牠會肚子餓",
+            "我用「如果／否則」讓牠依開心值換表情",
+            "我把好幾塊帽子積木合在一起，做出一隻完整的電子寵物",
+        ]) +
+
+        '<div class="goal" style="background:linear-gradient(120deg,#fff3d6,#ffe0ef);border-color:var(--accent2);margin-top:26px">'
+        '<div class="big">🎓</div><div><h3 style="color:var(--brand)">太厲害了，你畢業了！</h3>'
+        '<p>你已經走完<b>全部 9 課</b>——從讓一顆燈亮起來，到做出一隻會撒嬌的電子寵物。'
+        '你會的東西：LED、按鈕、變數、迴圈、亂數、判斷、感測器、音樂——<b>這些都是真正的程式設計本領</b>！'
+        '接下來，就用它們做出<b>你自己</b>想到的東西吧 🌟</p></div></div>'
+
+        + nav_for("l9")
+    )
+    open(os.path.join(REPO, "l9.html"), "w").write(page("l9", body, "第 9 課：電子寵物大挑戰", ' data-lesson="l9"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7(); build_l8()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7(); build_l8(); build_l9()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")
