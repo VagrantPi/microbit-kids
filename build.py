@@ -10,7 +10,7 @@ LESSONS = [
          sub="打招呼、顯示愛心和你的名字", status="open"),
     dict(id="l2", em="🎨", short="LED 畫畫板", title="LED 畫畫板",
          sub="用 25 顆燈畫圖、做動畫", status="open"),
-    dict(id="l3", em="🅰️", short="按鈕魔法", title="按鈕魔法", sub="按 A、按 B 做不同的事", status="soon"),
+    dict(id="l3", em="🅰️", short="按鈕魔法", title="按鈕魔法", sub="按 A、按 B 做不同的事", status="open"),
     dict(id="l4", em="🔢", short="神奇計數器", title="神奇計數器", sub="學會「變數」，按一下加一", status="soon"),
     dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="soon"),
     dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="soon"),
@@ -79,6 +79,7 @@ def leds(pattern, cap=""):
 
 HEART = "#.#.#\n#####\n#####\n.###.\n..#.."
 SMILE = "#...#\n.....\n#...#\n#...#\n.###."
+SAD   = "#...#\n.....\n#...#\n.###.\n#...#"
 DUCK  = ".##..\n####.\n.####\n.###.\n....."
 ARROW = "..#..\n.###.\n#.#.#\n..#..\n..#.."
 
@@ -93,6 +94,16 @@ def nav(prev=None, next=None):
     left = f'<a class="btn ghost" href="{prev[0]}.html">← {esc(prev[1])}</a>' if prev else '<a class="btn ghost" href="index.html">← 回地圖</a>'
     right = f'<a class="btn g" href="{next[0]}.html">{esc(next[1])} →</a>' if next else ''
     return f'<div class="nav">{left}<span class="sp"></span>{right}</div>'
+
+def nav_for(lid):
+    """依課程大綱自動算出上一課／下一課（只連到已開放的課）。"""
+    opened = [L for L in LESSONS if L["status"] == "open"]
+    ids = [L["id"] for L in opened]
+    i = ids.index(lid)
+    def num(L): return LESSONS.index(L) + 1
+    prev = ("index", "回地圖") if i == 0 else (opened[i-1]["id"], f"第 {num(opened[i-1])} 課")
+    nxt = None if i == len(opened)-1 else (opened[i+1]["id"], f"第 {num(opened[i+1])} 課：{opened[i+1]['short']}")
+    return nav(prev, nxt)
 
 def done_badge():
     return ('<span id="doneBadge" class="eyebrow" style="display:none;background:var(--go);margin-left:8px">🎉 這一課完成！</span>')
@@ -188,7 +199,7 @@ def build_l1():
             "我會打開 makecode.microbit.org 開新專案",
             "我讓 micro:bit 顯示了圖案，也顯示了我的名字",
         ]) +
-        nav(prev=("index", "回地圖"), next=("l2", "第 2 課：LED 畫畫板"))
+        nav_for("l1")
     )
     open(os.path.join(REPO, "l1.html"), "w").write(page("l1", body, "第 1 課：認識 micro:bit", ' data-lesson="l1"'))
 
@@ -248,14 +259,75 @@ def build_l2():
             "我會用「顯示 LED」點格子畫出自己的圖案",
             "我用「暫停」讓兩張圖輪流換，做出動畫",
         ]) +
-        nav(prev=("l1", "第 1 課"), next=None)
+        nav_for("l2")
     )
     open(os.path.join(REPO, "l2.html"), "w").write(page("l2", body, "第 2 課：LED 畫畫板", ' data-lesson="l2"'))
 
+# ================= 第 3 課 =================
+def build_l3():
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 3 課</div>'
+        '<span class="eyebrow">第 3 課</span>' + done_badge() +
+        '<h1>🅰️ 按鈕魔法</h1>'
+        '<div class="goal"><div class="big">🪄</div><div><h3>這一課要做到</h3>'
+        '<p>按 <b>A</b> 出現一個表情，按 <b>B</b> 出現另一個——換你當<b>按鈕魔法師</b>！</p></div></div>'
+
+        '<h2>1. 什麼是「事件」？</h2>'
+        '<p>事件就是「<b>當…的時候，就做…</b>」。前兩課的程式一開機就自己跑；'
+        '這一課不一樣——micro:bit 會<b>乖乖等你</b>，你<b>按下按鈕</b>它才動作。</p>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 有「<b>當 🚩 被點擊</b>」「<b>當空白鍵被按下</b>」；micro:bit 換成「<b>當按鈕 A 被按下</b>」。'
+        '一模一樣的概念，你早就會了！</div>'
+
+        '<h2>2. 找到「當按鈕 A 被按下」積木 🧩</h2>'
+        '<p>它在左邊<b>「輸入」</b>抽屜裡（藍紫色的）。這是一塊<b>帽子積木</b>——'
+        '像帽子一樣蓋在最上面，下面夾什麼，按下按鈕就做什麼。</p>'
+        + prog(blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True)) +
+
+        '<h2>3. 拼出按鈕魔法 ✨</h2>'
+        '<p>做兩頂帽子：按 <b>A</b> 笑臉 😀、按 <b>B</b> 哭臉 😢。</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("😀"))),
+        )
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("B", True), " 被按下", hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("😢"))),
+        ) +
+        '<p>在模擬器上用滑鼠點 <b>A</b> 和 <b>B</b> 試試看：</p>'
+        + leds(SMILE, "按 A → 笑臉") + leds(SAD, "按 B → 哭臉") +
+        '<div class="note"><span class="hd">💡 兩頂帽子不會打架</span>'
+        'micro:bit 會<b>同時記住</b>兩個規則，你按哪一顆，它就做哪一件事。你可以做好多好多頂帽子！</div>'
+
+        '<h2>4. 隱藏魔法：A＋B 一起按 🤝</h2>'
+        '<p>把按鈕名字的<b>小三角形</b>點開，還有一個 <code>A+B</code>——代表兩顆<b>一起</b>按！</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A+B", True), " 被按下", hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("❤️"))),
+        )
+        + leds(HEART, "A＋B 一起按 → 愛心") +
+
+        '<div class="try"><h3>🎯 試試看（換你變魔法）</h3><ol>'
+        '<li>按 <b>A</b> 顯示你的<b>名字</b>，按 <b>B</b> 顯示你最喜歡的<b>數字</b>。</li>'
+        '<li>讓 <b>A＋B</b> 一起按時，顯示一顆愛心 ❤️。</li>'
+        '<li>加一頂新帽子：在「輸入」找「<b>當搖動</b>」，搖一搖 micro:bit 就顯示閃電或箭頭！（下一關會學更多感覺魔法 🌡️）</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l3", [
+            "我知道「事件」就是「當…的時候就做…」",
+            "我用「當按鈕 A／B 被按下」讓兩顆按鈕做不同的事",
+            "我試過 A＋B 一起按的隱藏魔法",
+        ]) +
+        nav_for("l3")
+    )
+    open(os.path.join(REPO, "l3.html"), "w").write(page("l3", body, "第 3 課：按鈕魔法", ' data-lesson="l3"'))
+
 def main():
-    build_index(); build_l1(); build_l2()
-    print("已生成：index.html, l1.html, l2.html")
-    print(f"開放課程：{[L['id'] for L in LESSONS if L['status']=='open']}")
+    build_index(); build_l1(); build_l2(); build_l3()
+    opened = [L['id'] for L in LESSONS if L['status']=='open']
+    print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
+    print(f"開放課程：{opened}")
 
 if __name__ == "__main__":
     main()
