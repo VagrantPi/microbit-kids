@@ -17,6 +17,9 @@ LESSONS = [
     dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="open"),
     dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="open"),
     dict(id="l9", em="🏆", short="電子寵物", title="電子寵物大挑戰", sub="把學會的通通用上！", status="open"),
+    dict(id="l10", em="📡", short="無線電雙人", title="無線電雙人連線", sub="兩台 micro:bit 隔空聊天", status="open"),
+    dict(id="l11", em="🎮", short="LED 小遊戲", title="LED 小遊戲：燈光快停", sub="用座標做一個反應遊戲", status="open"),
+    dict(id="l12", em="🍌", short="香蕉鋼琴", title="觸摸香蕉鋼琴", sub="碰水果就發出聲音", status="open"),
 ]
 
 # ===== 小工具 =====
@@ -89,6 +92,7 @@ DICE6 = "#...#\n.....\n#...#\n.....\n#...#"
 ARROW_L = "..#..\n.#...\n#####\n.#...\n..#.."
 ARROW_R = "..#..\n...#.\n#####\n...#.\n..#.."
 NOTE  = "...##\n...#.\n...#.\n##.#.\n##..."
+CENTER = ".....\n.....\n..#..\n.....\n....."
 
 def checklist(lesson_id, items):
     out = ['<ul class="check">']
@@ -743,17 +747,209 @@ def build_l9():
         ]) +
 
         '<div class="goal" style="background:linear-gradient(120deg,#fff3d6,#ffe0ef);border-color:var(--accent2);margin-top:26px">'
-        '<div class="big">🎓</div><div><h3 style="color:var(--brand)">太厲害了，你畢業了！</h3>'
-        '<p>你已經走完<b>全部 9 課</b>——從讓一顆燈亮起來，到做出一隻會撒嬌的電子寵物。'
-        '你會的東西：LED、按鈕、變數、迴圈、亂數、判斷、感測器、音樂——<b>這些都是真正的程式設計本領</b>！'
-        '接下來，就用它們做出<b>你自己</b>想到的東西吧 🌟</p></div></div>'
+        '<div class="big">🎉</div><div><h3 style="color:var(--brand)">基礎篇完成，太厲害了！</h3>'
+        '<p>你已經學會了<b>基礎篇 9 課</b>——從讓一顆燈亮起來，到做出一隻會撒嬌的電子寵物。'
+        'LED、按鈕、變數、迴圈、亂數、判斷、感測器、音樂——<b>這些都是真正的程式設計本領</b>！'
+        '休息一下，準備好就進入<b>進階篇（第 10～12 課）</b>：兩台隔空連線、做小遊戲、還有香蕉鋼琴 🍌 在等你！</p></div></div>'
 
         + nav_for("l9")
     )
     open(os.path.join(REPO, "l9.html"), "w").write(page("l9", body, "第 9 課：電子寵物大挑戰", ' data-lesson="l9"'))
 
+# ================= 第 10 課 =================
+def build_l10():
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 10 課</div>'
+        '<span class="eyebrow">第 10 課 · 進階篇</span>' + done_badge() +
+        '<h1>📡 無線電雙人連線</h1>'
+        '<div class="goal"><div class="big">📡</div><div><h3>這一課要做到</h3>'
+        '<p>讓<b>兩台</b> micro:bit <b>隔空聊天</b>！一台按按鈕，另一台就馬上有反應——不用任何電線！</p></div></div>'
+
+        '<h2>1. 什麼是「無線電」？📻</h2>'
+        '<p>無線電就像<b>對講機</b>：一台<b>發送</b>訊息，另一台<b>收到</b>。兩台要先轉到<b>同一個頻道</b>'
+        '（叫「群組」），才聽得到彼此，就像對講機要對好頻道一樣。</p>'
+        '<div class="note"><span class="hd">💻 只有一台也能玩！</span>'
+        '在 MakeCode <b>模擬器</b>裡，只要用到無線電積木，畫面會自動出現<b>兩台</b> micro:bit，'
+        '你可以看它們互相傳訊息！真的板子則需要兩台。</div>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 用「<b>廣播訊息</b>」讓不同角色互相通知；micro:bit 的<b>無線電</b>更酷——'
+        '是廣播給<b>另一台真的機器</b>！</div>'
+
+        '<h2>2. 先對好頻道 📻</h2>'
+        '<p>兩台都要在開機時設定<b>一樣的群組</b>（例如 1）。無線電積木在<b>「無線電」</b>抽屜：</p>'
+        + prog(
+            blk("basic", "基本", slot("當程式開始"), hat=True,
+                nest_html=blk("radio", "無線電", "設定群組 ", slot("1"))),
+        ) +
+        '<div class="tip"><span class="hd">🔑 群組是暗號</span>'
+        '只有<b>同一組</b>的 micro:bit 聽得到彼此。想跟朋友玩不被別人干擾，就約好一個<b>祕密號碼</b>當群組！</div>'
+
+        '<h2>3. 送出訊息 📤</h2>'
+        '<p>按 A，就對外<b>發送一個數字</b>（例如 7）：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=blk("radio", "無線電", "發送數字 ", slot("7"))),
+        ) +
+
+        '<h2>4. 收到訊息就反應 📥</h2>'
+        '<p>另一台（或同一台）用「<b>當收到無線電數字</b>」這頂帽子，收到就顯示一顆愛心＋叫一聲：</p>'
+        + prog(
+            blk("radio", "無線電", "當收到無線電數字 ", slot("收到的數字", True), hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("❤️")) +
+                          blk("music", "音樂", "播放音調 ", slot("中央 C"), " 持續 ", slot("1"), " 拍")),
+        ) +
+        '<p>A 台按一下，B 台<b>馬上</b>跳出愛心——像不像隔空傳情？💌</p>'
+        + leds(HEART, "收到訊息 → 愛心亮起") +
+
+        '<div class="try"><h3>🎯 試試看（換你連線）</h3><ol>'
+        '<li>讓<b>兩台互相</b>都能收發：兩台都放「按 A 發送」和「收到就顯示」。</li>'
+        '<li>用<b>不同數字</b>代表不同意思：收到 1 顯示笑臉、收到 2 顯示星星（用「如果／否則」）。</li>'
+        '<li>大挑戰：做「<b>隔空猜拳</b>」——各自搖出 1～3 發送，比比看誰贏！</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l10", [
+            "我知道兩台 micro:bit 要設定同一個「群組」才能通訊",
+            "我會用「發送數字」送訊息、用「當收到無線電數字」接訊息",
+            "我做出了一台按按鈕、另一台有反應的隔空連線",
+        ]) +
+        nav_for("l10")
+    )
+    open(os.path.join(REPO, "l10.html"), "w").write(page("l10", body, "第 10 課：無線電雙人連線", ' data-lesson="l10"'))
+
+# ================= 第 11 課 =================
+def build_l11():
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 11 課</div>'
+        '<span class="eyebrow">第 11 課 · 進階篇</span>' + done_badge() +
+        '<h1>🎮 LED 小遊戲：燈光快停</h1>'
+        '<div class="goal"><div class="big">🎯</div><div><h3>這一課要做到</h3>'
+        '<p>做一個真的<b>小遊戲</b>！一顆燈在螢幕上<b>來回跑</b>，你要抓準時機按下按鈕，'
+        '讓它停在<b>正中間</b>——停對了就贏！</p></div></div>'
+
+        '<h2>1. LED 也有「地址」📍</h2>'
+        '<p>25 顆燈每一顆都有自己的位置，用兩個數字表示：<b>x</b> 是第幾<b>欄</b>（左右，0～4）、'
+        '<b>y</b> 是第幾<b>列</b>（上下，0～4）。用「<b>點亮 x y</b>」就能點亮指定的那一顆：</p>'
+        + prog(blk("led", "LED", "點亮 x ", slot("2"), " y ", slot("2"))) +
+        '<p>「點亮 x 2 y 2」就是<b>正中間</b>那一顆：</p>'
+        + leds(CENTER, "x=2, y=2 → 正中央") +
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 用 <b>x、y</b> 決定角色在舞台的位置；micro:bit 用 <b>x、y</b> 決定點亮哪一顆燈。'
+        '一樣是座標，你早就懂！</div>'
+
+        '<h2>2. 讓一顆燈自己來回跑 🏃</h2>'
+        '<p>用一個盒子 <code>x</code> 記住燈在第幾欄，再用 <code>dir</code>（方向：1＝往右、-1＝往左）。'
+        '每過一下下就移動一步，<b>碰到邊邊就轉頭</b>：</p>'
+        + prog(
+            blk("basic", "基本", slot("當程式開始"), hat=True,
+                nest_html=blk("var", "變數", "設定 ", slot("x"), " 為 ", slot("0")) +
+                          blk("var", "變數", "設定 ", slot("dir"), " 為 ", slot("1")) +
+                          blk("loop", "迴圈", "重複無限次",
+                              nest_html=blk("basic", "基本", "清除螢幕") +
+                                        blk("led", "LED", "點亮 x ", slot("x"), " y ", slot("2")) +
+                                        blk("basic", "基本", "暫停 ", slot("200"), " 毫秒") +
+                                        blk("var", "變數", slot("x"), " 改變 ", slot("dir")) +
+                                        blk("logic", "邏輯", "如果 ", slot("x"), " ≥ ", slot("4"), " 那麼",
+                                            nest_html=blk("var", "變數", "設定 ", slot("dir"), " 為 ", slot("-1"))) +
+                                        blk("logic", "邏輯", "如果 ", slot("x"), " ≤ ", slot("0"), " 那麼",
+                                            nest_html=blk("var", "變數", "設定 ", slot("dir"), " 為 ", slot("1"))))),
+        ) +
+        '<p>燈會像乒乓球一樣<b>左右彈來彈去</b> 🏓。改「暫停」的數字就能調快慢！</p>'
+
+        '<h2>3. 按下按鈕來抓時機 🎯</h2>'
+        '<p>按 A 的時候，檢查燈<b>是不是</b>正好在中間（x = 2）：對了顯示笑臉＋歡呼，不對就哭臉：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=blk("logic", "邏輯", "如果 ", slot("x"), " = ", slot("2"), " 那麼",
+                              nest_html=blk("basic", "基本", "顯示圖示 ", slot("😀")) +
+                                        blk("music", "音樂", "播放音調 ", slot("中央 G"), " 持續 ", slot("1"), " 拍")) +
+                          blk("logic", "邏輯", "否則",
+                              nest_html=blk("basic", "基本", "顯示圖示 ", slot("😢")))),
+        ) +
+        '<p>恭喜你，這是一個<b>真的遊戲</b>了——有東西在動、有輸有贏！🎉</p>'
+
+        '<div class="try"><h3>🎯 試試看（讓遊戲更好玩）</h3><ol>'
+        '<li>加<b>計分</b>：贏了就 <code>score</code> 改變 1，用「顯示數字」秀出分數。</li>'
+        '<li>把遊戲<b>變難</b>：把「暫停」數字改小，燈跑更快更難抓。</li>'
+        '<li>大挑戰：中<b>三格</b>都算贏（x = 1、2 或 3），或用<b>傾斜</b>控制一個籃子去接掉下來的燈。</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l11", [
+            "我知道每顆 LED 有 x（欄）和 y（列）座標",
+            "我用變數＋迴圈讓一顆燈自己來回跑，碰邊就轉頭",
+            "我用按鈕＋「如果／否則」做出有輸有贏的小遊戲",
+        ]) +
+        nav_for("l11")
+    )
+    open(os.path.join(REPO, "l11.html"), "w").write(page("l11", body, "第 11 課：LED 小遊戲", ' data-lesson="l11"'))
+
+# ================= 第 12 課（進階篇最終關）=================
+def build_l12():
+    def touch(pin, note, num):
+        return blk("event", "輸入", "當引腳 ", slot(pin, True), " 被觸碰", hat=True,
+                   nest_html=blk("music", "音樂", "播放音調 ", slot(note), " 持續 ", slot("½"), " 拍") +
+                             blk("basic", "基本", "顯示數字 ", slot(num)))
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 12 課</div>'
+        '<span class="eyebrow">第 12 課 · 進階篇最終關</span>' + done_badge() +
+        '<h1>🍌 觸摸香蕉鋼琴</h1>'
+        '<div class="goal"><div class="big">🎹</div><div><h3>這一課要做到</h3>'
+        '<p>用<b>香蕉</b>、鋁箔紙…當琴鍵！手指一碰就發出聲音——做一台真的會玩的<b>食物鋼琴</b> 🍌🎵</p></div></div>'
+
+        '<h2>1. 金色的大孔＝「引腳」🔌</h2>'
+        '<p>看 micro:bit 最下面那一排<b>金色的大孔</b>，上面寫著 <b>0、1、2、3V、GND</b>。'
+        '其中 <b>P0、P1、P2</b> 這三個很特別——它們能感覺到<b>有沒有被碰到</b>！</p>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 會問「<b>碰到滑鼠了嗎</b>」；micro:bit 會問「<b>P0 被碰到了嗎</b>」。'
+        '一樣是「碰到就做事」，只是這次碰的是<b>真的東西</b>！</div>'
+
+        '<h2>2. 碰一下，響一聲 🎵</h2>'
+        '<p>用「<b>當引腳 P0 被觸碰</b>」這頂帽子（在「輸入」抽屜），碰到就播一個音、顯示琴鍵號碼：</p>'
+        + prog(touch("P0", "中央 C", "1")) +
+
+        '<h2>3. 三根香蕉，三個音 🍌🍌🍌</h2>'
+        '<p>P0、P1、P2 各接一根香蕉，就有三個琴鍵（Do、Mi、So）：</p>'
+        + prog(touch("P0", "中央 C", "1"))
+        + prog(touch("P1", "中央 E", "3"))
+        + prog(touch("P2", "中央 G", "5"))
+        + leds(NOTE, "碰一下就唱歌 🎶") +
+
+        '<h2>4. 怎麼接？（重點來了）🔧</h2>'
+        '<div class="note"><span class="hd">🍌 接線小魔法</span>'
+        '① 用<b>鱷魚夾</b>：一端夾住 <b>P0</b>，另一端夾住一根<b>香蕉</b>。<br>'
+        '② 再用一條線夾住 <b>GND</b>（接地），你的手<b>捏住</b>它。<br>'
+        '③ 現在用另一隻手<b>碰香蕉</b>——電流會通過你的身體，micro:bit 就知道「被碰到了」，唱出音來！</div>'
+        '<div class="tip"><span class="hd">💡 沒有香蕉也行</span>'
+        '鋁箔紙、金屬湯匙、濕海綿、朋友的手…只要<b>會導電</b>都可以當琴鍵。'
+        '手一定要<b>同時</b>接觸 GND，電流才走得通喔！</div>'
+
+        '<div class="try"><h3>🎯 試試看（開一場演奏會）</h3><ol>'
+        '<li>把三個音<b>換成你喜歡的</b>，彈出一小段旋律。</li>'
+        '<li>用不同<b>水果</b>當琴鍵，看哪一種最好彈。</li>'
+        '<li>大挑戰：碰 P0 的時候，除了聲音還跳出一個<b>動畫</b>，做成炫炮的表演！</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l12", [
+            "我知道 P0、P1、P2 引腳可以感覺到被碰到",
+            "我會用「當引腳被觸碰」讓碰觸發出聲音",
+            "我懂得手要同時接 GND，電流才會通、才彈得出聲音",
+        ]) +
+
+        '<div class="goal" style="background:linear-gradient(120deg,#ffe9b0,#ffc8e0,#d9c4ff);border-color:var(--brand);margin-top:26px">'
+        '<div class="big">🏆</div><div><h3 style="color:var(--brand)">全部 12 課完成！你是 micro:bit 大師 🎓</h3>'
+        '<p>從第一顆亮起來的燈，一路到會連線、會玩遊戲、還會彈香蕉鋼琴——'
+        '你已經學會了<b>真正的程式設計</b>：顯示、事件、變數、迴圈、亂數、判斷、感測器、音樂、無線電、座標、引腳。'
+        '這些本領<b>一輩子都用得到</b>。<br><br>'
+        '最棒的還在後面：現在換你<b>發明自己的作品</b>——想做什麼，就用積木把它拼出來吧！🌟</p></div></div>'
+
+        + nav_for("l12")
+    )
+    open(os.path.join(REPO, "l12.html"), "w").write(page("l12", body, "第 12 課：觸摸香蕉鋼琴", ' data-lesson="l12"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7(); build_l8(); build_l9()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7(); build_l8(); build_l9(); build_l10(); build_l11(); build_l12()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")
