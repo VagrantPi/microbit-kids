@@ -14,7 +14,7 @@ LESSONS = [
     dict(id="l4", em="🔢", short="神奇計數器", title="神奇計數器", sub="學會「變數」，按一下加一", status="open"),
     dict(id="l5", em="🔁", short="重複的力量", title="重複的力量", sub="用迴圈做跑馬燈和閃爍", status="open"),
     dict(id="l6", em="🎲", short="搖一搖骰子", title="搖一搖骰子", sub="亂數加判斷，做電子骰子", status="open"),
-    dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="soon"),
+    dict(id="l7", em="🌡️", short="神奇感測器", title="神奇感測器", sub="溫度、光線、傾斜都感覺得到", status="open"),
     dict(id="l8", em="🎵", short="音樂盒", title="音樂盒", sub="播放音符，做一個小樂器", status="soon"),
     dict(id="l9", em="🏆", short="電子寵物", title="電子寵物大挑戰", sub="把學會的通通用上！", status="soon"),
 ]
@@ -86,6 +86,8 @@ THREE = ".###.\n....#\n..##.\n....#\n.###."
 EMPTY = ".....\n.....\n.....\n.....\n....."
 STAR  = "..#..\n#####\n.###.\n.#.#.\n#...#"
 DICE6 = "#...#\n.....\n#...#\n.....\n#...#"
+ARROW_L = "..#..\n.#...\n#####\n.#...\n..#.."
+ARROW_R = "..#..\n...#.\n#####\n...#.\n..#.."
 
 def checklist(lesson_id, items):
     out = ['<ul class="check">']
@@ -522,8 +524,82 @@ def build_l6():
     )
     open(os.path.join(REPO, "l6.html"), "w").write(page("l6", body, "第 6 課：搖一搖骰子", ' data-lesson="l6"'))
 
+# ================= 第 7 課 =================
+def build_l7():
+    temp = blk("event", "輸入", "溫度(°C)")
+    light = blk("event", "輸入", "光線感應值")
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 第 7 課</div>'
+        '<span class="eyebrow">第 7 課</span>' + done_badge() +
+        '<h1>🌡️ 神奇感測器</h1>'
+        '<div class="goal"><div class="big">🦸</div><div><h3>這一課要做到</h3>'
+        '<p>micro:bit 有<b>超能力</b>——它感覺得到<b>冷熱</b>、<b>亮暗</b>，還有你把它<b>傾斜</b>！'
+        '做一個溫度計，還有會自己亮的<b>小夜燈</b>。</p></div></div>'
+
+        '<h2>1. micro:bit 的「感覺器官」👀</h2>'
+        '<p>就像你有皮膚感覺冷熱、眼睛感覺亮暗，micro:bit 身上也藏了好幾個<b>感測器</b>：'
+        '會量<b>溫度</b> 🌡️、會看<b>光線</b> 💡、會知道自己被<b>搖或傾斜</b> 🤸。'
+        '這些感測器會給你一個<b>數字</b>，程式就能拿來用！</p>'
+        '<div class="scratch"><span class="hd">🐱 跟 Scratch 比一比</span>'
+        'Scratch 有「<b>計時器</b>」「<b>滑鼠 x</b>」這種會一直變的數字積木（圓圓的）；'
+        'micro:bit 的<b>溫度、光線</b>也是圓圓的積木，可以塞進別的積木裡當數字用。</div>'
+
+        '<h2>2. 做一支溫度計 🌡️</h2>'
+        '<p>按 A，就把現在的溫度顯示出來。「溫度(°C)」在<b>「輸入」</b>抽屜裡：</p>'
+        + prog(
+            blk("event", "輸入", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                nest_html=blk("basic", "基本", "顯示數字 ", temp)),
+        ) +
+        '<div class="note"><span class="hd">💡 數字會自己變</span>'
+        '把手指<b>壓在板子上</b>暖一下，再按 A，數字就會<b>變大</b>——因為它真的感覺到變熱了！</div>'
+
+        '<h2>3. 會自己亮的小夜燈 💡</h2>'
+        '<p>小夜燈很聰明：<b>暗</b>的時候亮起來，<b>亮</b>的時候熄掉。我們用「光線感應值」（0＝全黑，255＝很亮）'
+        '搭配<b>「如果／否則」</b>，還要用<b>「重複無限次」</b>讓它一直檢查：</p>'
+        + prog(
+            blk("loop", "迴圈", "重複無限次", hat=True,
+                nest_html=blk("logic", "邏輯", "如果 ", light, " < ", slot("50"), " 那麼",
+                              nest_html=blk("basic", "基本", "顯示圖示 ", slot("⭐"))) +
+                          blk("logic", "邏輯", "否則",
+                              nest_html=blk("basic", "基本", "清除螢幕"))),
+        ) +
+        '<p>用手<b>蓋住</b>板子（變暗），星星就亮起來當夜燈；<b>放開</b>（變亮），它就熄掉：</p>'
+        + leds(STAR, "變暗 → 夜燈亮起 ✨") +
+        '<div class="tip"><span class="hd">🔍 「&lt;」是什麼意思？</span>'
+        '「<b>&lt;</b>」是「<b>小於</b>」，就是「比它小」。「光線感應值 &lt; 50」= 「現在比 50 還暗」。'
+        '門檻 50 可以自己調：想它更晚才亮，就把數字調小。</div>'
+
+        '<h2>4. 傾斜控制箭頭 🤸</h2>'
+        '<p>micro:bit 還知道你把它<b>往哪邊倒</b>！用「<b>當手勢</b>」事件，點開選<b>向左／向右傾斜</b>：</p>'
+        + prog(
+            blk("event", "輸入", "當手勢 ", slot("向左傾斜", True), hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("⬅️"))),
+        )
+        + prog(
+            blk("event", "輸入", "當手勢 ", slot("向右傾斜", True), hat=True,
+                nest_html=blk("basic", "基本", "顯示圖示 ", slot("➡️"))),
+        )
+        + '<p>把板子往左倒，箭頭指左；往右倒，箭頭指右——像不像方向盤？🚗</p>'
+        + leds(ARROW_L, "向左傾斜") + leds(ARROW_R, "向右傾斜") +
+
+        '<div class="try"><h3>🎯 試試看（換你當發明家）</h3><ol>'
+        '<li>把溫度計改成「<b>重複無限次</b>」一直顯示，不用按按鈕。</li>'
+        '<li>調整夜燈的門檻（50 改成 <b>100</b> 或 <b>20</b>），找出最好用的數字。</li>'
+        '<li>大挑戰：太熱（溫度 &gt; 30）顯示哭臉 😢，涼涼的就顯示笑臉 😀。</li>'
+        '</ol></div>'
+
+        '<h2>✅ 我學會了</h2><p>點一下把學會的打勾：</p>'
+        + checklist("l7", [
+            "我知道 micro:bit 有溫度、光線、動作等感測器",
+            "我會用「溫度」「光線感應值」這種會變的數字積木",
+            "我用感測器＋「如果／否則」做出會自己反應的東西（小夜燈）",
+        ]) +
+        nav_for("l7")
+    )
+    open(os.path.join(REPO, "l7.html"), "w").write(page("l7", body, "第 7 課：神奇感測器", ' data-lesson="l7"'))
+
 def main():
-    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6()
+    build_index(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6(); build_l7()
     opened = [L['id'] for L in LESSONS if L['status']=='open']
     print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程：{opened}")
