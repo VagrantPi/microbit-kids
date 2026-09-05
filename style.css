@@ -396,3 +396,13 @@ html[data-theme=dark] .usedhint{background:#2f2752}
   .gcards{grid-template-columns:1fr}
   .uses{grid-template-columns:1fr}
 }
+
+/* ================= 給孩子的選讀（跟給大人的 .adult 分開）================= */
+.optional{margin:12px 0;border:3px solid var(--line);border-radius:14px;
+  background:var(--card);font-size:15px}
+.optional > summary{cursor:pointer;padding:10px 14px;font-weight:800;color:var(--accent);
+  list-style:none;user-select:none}
+.optional > summary::-webkit-details-marker{display:none}
+.optional > summary::before{content:"▸ ";font-weight:800}
+.optional[open] > summary::before{content:"▾ "}
+.optional > div{padding:0 14px 12px;color:var(--ink);line-height:1.8}
