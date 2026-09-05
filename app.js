@@ -137,3 +137,122 @@ renderSteps();
 document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
   try { if (localStorage.getItem(doneKey(a.getAttribute('data-lesson'))) === '1') a.classList.add('done'); } catch(e){}
 });
+
+// ===== 積木圖鑑 101 =====
+// 兩種狀態：seen（翻圖鑑點過）和 got（測驗答對過）。進度條算的是 got。
+(function () {
+  var dex = document.getElementById('dex');
+  if (!dex) return;                       // 其他頁面直接跳過
+
+  var cards = Array.prototype.slice.call(dex.querySelectorAll('.dexcard'));
+  var total = cards.length;
+  var pNum = document.getElementById('p101');
+  var pFill = document.getElementById('p101fill');
+  var badge = document.getElementById('dexBadge');
+
+  function key(kind, i) { return 'mb101_' + kind + '_' + i; }
+  function read(kind, i) { try { return localStorage.getItem(key(kind, i)) === '1'; } catch (e) { return false; } }
+  function save(kind, i, on) {
+    try { on ? localStorage.setItem(key(kind, i), '1') : localStorage.removeItem(key(kind, i)); } catch (e) {}
+  }
+
+  function refresh() {
+    var got = cards.filter(function (c) { return c.classList.contains('got'); }).length;
+    if (pNum) pNum.textContent = got;
+    if (pFill) pFill.style.width = (total ? got / total * 100 : 0) + '%';
+    if (badge) badge.style.display = (got === total && total) ? 'inline-flex' : 'none';
+  }
+
+  cards.forEach(function (c) {
+    var i = c.getAttribute('data-i');
+    if (read('seen', i)) c.classList.add('seen');
+    if (read('got', i)) c.classList.add('got');
+    c.onclick = function () {
+      var on = c.classList.toggle('seen');
+      save('seen', i, on);
+    };
+  });
+  refresh();
+
+  // ---- 抽屜分頁 ----
+  dex.querySelectorAll('.dextab').forEach(function (t) {
+    t.onclick = function () {
+      var cat = t.getAttribute('data-cat');
+      dex.querySelectorAll('.dextab').forEach(function (x) { x.classList.toggle('cur', x === t); });
+      dex.querySelectorAll('.dexpanel').forEach(function (p) {
+        p.classList.toggle('cur', p.getAttribute('data-cat') === cat);
+      });
+    };
+  });
+
+  // ---- 模式切換 ----
+  var quiz = document.getElementById('quiz');
+  var mDex = document.getElementById('modeDex');
+  var mQuiz = document.getElementById('modeQuiz');
+  function setMode(quizOn) {
+    dex.hidden = quizOn;
+    quiz.hidden = !quizOn;
+    mDex.classList.toggle('cur', !quizOn);
+    mQuiz.classList.toggle('cur', quizOn);
+    if (quizOn) ask();
+  }
+  mDex.onclick = function () { setMode(false); };
+  mQuiz.onclick = function () { setMode(true); };
+
+  // ---- 出題 ----
+  var qBlock = document.getElementById('qblock');
+  var qMsg = document.getElementById('qmsg');
+  var qNext = document.getElementById('qnext');
+  var opts = Array.prototype.slice.call(quiz.querySelectorAll('.qopt'));
+  var cur = null;
+
+  function ask() {
+    // 先考還沒收集到的；全部收集完就整副重抽
+    var pool = cards.filter(function (c) { return !c.classList.contains('got'); });
+    if (!pool.length) pool = cards;
+    cur = pool[Math.floor(Math.random() * pool.length)];
+
+    qBlock.innerHTML = '';
+    var shown = cur.querySelector('.bwrap .block').cloneNode(true);
+    // 積木上的抽屜名標籤要拿掉，不然答案就直接印在題目上了（巢狀積木裡的也要拿）
+    Array.prototype.slice.call(shown.querySelectorAll('.tag')).forEach(function (t) { t.remove(); });
+    if (shown.classList.contains('tag')) shown.remove();
+    qBlock.appendChild(shown);
+    qMsg.textContent = '';
+    qMsg.className = 'qmsg';
+    qNext.style.display = 'none';
+    opts.forEach(function (o) { o.classList.remove('right', 'wrong'); o.disabled = false; });
+  }
+
+  opts.forEach(function (o) {
+    o.onclick = function () {
+      if (!cur || o.disabled) return;
+      var want = cur.getAttribute('data-cat');
+      var picked = o.getAttribute('data-cat');
+      opts.forEach(function (x) { x.disabled = true; });
+
+      if (picked === want) {
+        o.classList.add('right');
+        cur.classList.add('got');
+        save('got', cur.getAttribute('data-i'), true);
+        // 答對也算看過
+        cur.classList.add('seen');
+        save('seen', cur.getAttribute('data-i'), true);
+        qMsg.textContent = '答對了！收集 +1 🏅';
+        qMsg.className = 'qmsg ok';
+        refresh();
+      } else {
+        // 答錯不扣分，直接指出正確答案，這題留在題庫裡下次再出
+        o.classList.add('wrong');
+        opts.forEach(function (x) { if (x.getAttribute('data-cat') === want) x.classList.add('right'); });
+        var name = '';
+        opts.forEach(function (x) { if (x.getAttribute('data-cat') === want) name = x.textContent.trim(); });
+        qMsg.textContent = '它在「' + name + '」抽屜喔，再看一次 👀';
+        qMsg.className = 'qmsg no';
+      }
+      qNext.style.display = 'block';
+    };
+  });
+
+  qNext.onclick = ask;
+})();

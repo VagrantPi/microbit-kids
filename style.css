@@ -168,8 +168,10 @@ footer{margin-top:34px;color:var(--muted);font-size:14px;text-align:center;font-
 @media(max-width:820px){
   .layout{grid-template-columns:1fr}
   .side{position:static;margin-bottom:6px}
+  /* 窄螢幕的側邊欄是疊在課文上面的，收合更該有效——原本這裡把它 display:block 蓋回去，
+     等於 ☰ 在手機上完全按不動。欄寬要重設成 1fr（不然 0 會把版面壓壞），但顯示要跟著收。 */
   html.side-collapsed .layout{grid-template-columns:1fr}
-  html.side-collapsed .side{display:block}
+  html.side-collapsed .side{display:none}
   h1{font-size:28px}.hero h1{font-size:32px}
 }
 
@@ -252,3 +254,99 @@ html[data-theme=dark] .adult{background:#241f3d}
 .adult[open] > summary::before{content:"▾ "}
 .adult > div{padding:0 13px 11px;color:var(--ink2);line-height:1.75}
 .adult > div p{margin:6px 0}
+
+/* ================= 積木圖鑑 101 ================= */
+/* 首頁大入口 */
+.bigcard{display:flex;align-items:center;gap:16px;text-decoration:none;color:inherit;
+  background:linear-gradient(120deg,#fff3d6,#ffe9f3);border:3px solid #ffd08a;
+  border-radius:22px;padding:18px 20px;margin:14px 0;box-shadow:var(--shadow);transition:.15s}
+html[data-theme=dark] .bigcard{background:linear-gradient(120deg,#3a2f18,#3a1f2e);border-color:#7a5a2a}
+.bigcard:hover{transform:translateY(-2px)}
+.bigcard .em{font-size:44px;line-height:1;flex:none}
+.bigcard .tx{flex:1}
+.bigcard .tx b{display:block;font-size:21px;color:var(--accent);margin-bottom:3px}
+.bigcard .tx span{color:var(--ink2);font-size:15.5px;line-height:1.6}
+.bigcard .go{flex:none;background:var(--go);color:#fff;font-weight:800;
+  border-radius:999px;padding:8px 16px;white-space:nowrap}
+
+/* 進度條 */
+.bar101{position:relative;background:var(--bg2);border:3px solid var(--line);
+  border-radius:999px;height:34px;margin:14px 0;overflow:hidden}
+html[data-theme=dark] .bar101{background:#2f2752}
+.bar101 .fill{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--go),#5fd99a);
+  transition:width .35s}
+/* 這裡不能用 grid 或 flex：兩者都會把「收集了」「0」「/ 48 塊」拆成獨立的匿名項目
+   （grid 直向疊起來被裁掉，flex 則會吃掉純空白），所以用行高置中讓它保持一整行 inline 文字。
+   28px = .bar101 的 34px 減掉上下各 3px 邊框。 */
+.bar101 .txt{position:absolute;inset:0;text-align:center;line-height:28px;
+  font-weight:800;font-size:15px}
+
+/* 模式切換 */
+.modes{display:flex;gap:10px;margin:14px 0}
+.modes .mode{flex:1;font:inherit;font-weight:800;font-size:17px;cursor:pointer;
+  background:var(--card);color:var(--ink2);border:3px solid var(--line);
+  border-radius:16px;padding:11px 8px}
+.modes .mode.cur{background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff;border-color:transparent}
+
+/* 抽屜分頁 */
+.dextabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.dextab{display:flex;align-items:center;gap:6px;font:inherit;font-weight:700;font-size:15px;
+  cursor:pointer;background:var(--card);color:var(--ink);border:3px solid var(--line);
+  border-radius:999px;padding:7px 13px}
+.dextab.cur{border-color:var(--brand);background:var(--bg2)}
+.dextab .cnt{background:var(--line);border-radius:999px;padding:0 7px;font-size:12.5px;color:var(--ink2)}
+
+/* 卡片 */
+.dexpanel{display:none}
+.dexpanel.cur{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.dexcard{position:relative;background:var(--card);border:3px solid var(--line);border-radius:18px;
+  padding:13px 14px 11px;cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
+.dexcard:hover{transform:translateY(-2px)}
+.dexcard.seen{border-color:var(--go);background:#f4fff8}
+html[data-theme=dark] .dexcard.seen{background:#16311f}
+.dexcard.got{border-color:#f0a92c;box-shadow:0 0 0 4px rgba(240,169,44,.22)}
+.dexcard .box{position:absolute;top:11px;right:12px;width:26px;height:26px;border-radius:8px;
+  border:3px solid var(--line);display:grid;place-items:center;font-weight:800;color:var(--go)}
+.dexcard.seen .box{background:var(--go);border-color:var(--go);color:#fff}
+.dexcard.seen .box::after{content:"✓"}
+.dexcard .medal{position:absolute;bottom:9px;right:12px;font-size:19px;display:none}
+.dexcard.got .medal{display:block}
+.dexcard .bwrap{margin:4px 34px 8px 0;min-height:46px;display:flex;align-items:center}
+.dexcard .bwrap .block{margin:0;font-size:15px}
+.dexcard .d{margin:0;color:var(--ink2);font-size:15px;line-height:1.6;padding-right:24px}
+
+/* 測驗 */
+.quiz{background:var(--card);border:3px solid var(--line);border-radius:22px;
+  padding:18px;margin:14px 0;box-shadow:var(--shadow)}
+.quiz .qhead{font-weight:800;font-size:20px;text-align:center;margin-bottom:12px}
+.quiz .qblock{display:flex;justify-content:center;background:var(--bg2);border-radius:16px;
+  padding:16px;margin-bottom:14px;min-height:64px;align-items:center}
+html[data-theme=dark] .quiz .qblock{background:#2f2752}
+.quiz .qblock .block{margin:0}
+.quizopts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.qopt{display:flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:800;
+  font-size:15.5px;cursor:pointer;background:var(--card);color:var(--ink);
+  border:3px solid var(--line);border-radius:14px;padding:12px 6px}
+.qopt:hover{border-color:var(--brand)}
+.qopt.right{background:var(--go);border-color:var(--go);color:#fff}
+.qopt.wrong{background:#ffe3e3;border-color:#ff9d9d}
+html[data-theme=dark] .qopt.wrong{background:#4a2020;border-color:#8a4040}
+.qopt[disabled]{cursor:default}
+.qmsg{margin-top:13px;text-align:center;font-weight:800;font-size:17px;min-height:26px}
+.qmsg.ok{color:var(--go)}
+.qmsg.no{color:#e0484d}
+#qnext{display:block;margin:13px auto 0}
+
+/* 側邊欄的工具列（積木圖鑑）*/
+.lrow.tool{border-bottom:2px dashed var(--line);margin-bottom:5px;padding-bottom:9px}
+
+@media (max-width:560px){
+  .bigcard{flex-wrap:wrap}
+  .bigcard .go{width:100%;text-align:center}
+  .dexpanel.cur{grid-template-columns:1fr}
+  .qopt{font-size:14px;padding:11px 4px;flex-direction:column;gap:3px}
+}
+
+/* 頂列在窄螢幕會被 ☰ / 🎯 / 🌙 三顆按鈕擠到換行，把站名縮成只剩 micro:bit 徽章 */
+.bar .brand{white-space:nowrap}
+@media(max-width:560px){ .bar .brand .wm{display:none} }

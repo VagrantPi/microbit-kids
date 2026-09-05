@@ -54,13 +54,16 @@ def head(title):
             'if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed")}catch(e){}</script>\n'
             '</head>')
 
-def topbar(focus_btn=False):
-    """課程頁多一顆專注模式開關；首頁沒有步驟卡，就不放。"""
+def topbar(focus_btn=False, side_btn=False):
+    """課程頁多一顆專注模式開關；首頁沒有步驟卡也沒有側邊欄，兩顆都不放。
+    （首頁放 ☰ 會按了沒反應，卻把收合狀態寫進 localStorage，害其他頁的課程地圖消失。）"""
     fb = ('<button class="iconbtn" id="focusBtn" title="專注模式" aria-label="切換專注模式">🎯</button>'
           if focus_btn else '')
+    sbtn = ('<button class="iconbtn" id="sideBtn" title="收合選單" aria-label="收合選單">☰</button>'
+            if side_btn else '')
     return ('<header class="bar"><div class="in">'
-            '<button class="iconbtn" id="sideBtn" title="收合選單" aria-label="收合選單">☰</button>'
-            '<a class="brand" href="index.html" style="text-decoration:none"><span class="chip">micro:bit</span> 積木冒險</a>'
+            + sbtn +
+            '<a class="brand" href="index.html" style="text-decoration:none"><span class="chip">micro:bit</span><span class="wm"> 積木冒險</span></a>'
             '<span class="spacer"></span>'
             + fb +
             '<button class="iconbtn" id="themeBtn" title="換個顏色" aria-label="切換深淺色">🌙</button>'
@@ -72,6 +75,10 @@ def lesson_no(L):
 
 def sidebar(cur):
     rows = ['<nav class="outline"><div class="cap">🗺️ 課程地圖</div>']
+    # 積木圖鑑不是一課，所以不放進 LESSONS（免得課程編號跟著跑掉），單獨釘在最上面。
+    c101 = " cur" if cur == "101" else ""
+    rows.append(f'<a class="lrow tool{c101}" href="101.html"><span class="em">🔍</span>'
+                f'<span>積木圖鑑 101</span></a>')
     for i, L in enumerate(LESSONS):
         pre = "準備 ·" if L["id"] == "l0" else f"{i}."
         if L["status"] == "open":
@@ -85,7 +92,7 @@ def sidebar(cur):
     return '<aside class="side">' + ''.join(rows) + '</aside>'
 
 def page(cur, body, title, lesson_attr=""):
-    return (head(title) + f'<body{lesson_attr}>' + topbar(focus_btn=True) +
+    return (head(title) + f'<body{lesson_attr}>' + topbar(focus_btn=True, side_btn=True) +
             '<div class="wrap"><div class="layout">' + sidebar(cur) +
             '<main class="content">' + body + '</main></div></div>\n<script src="app.js"></script></body></html>\n')
 
@@ -208,6 +215,163 @@ def top(lid, label, title):
 def write(lid, body, title):
     open(os.path.join(REPO, f"{lid}.html"), "w").write(page(lid, body, title, f' data-lesson="{lid}"'))
 
+# ================= 積木圖鑑 101 的資料表 =================
+# 九個抽屜的常用積木，全部實測自 makecode.microbit.org zh-TW（編輯器 v9.0.12）。
+# parts 的寫法：純字串＝積木上的文字，("s",x)＝白色方框，("r",x)＝圓角下拉，
+#              ("n",cat,[...])＝積木裡面還卡著一塊小積木。
+# 積木上的字一律照螢幕，desc（一句話）才用孩子聽得懂的講法。
+def B(cat, parts, desc, hat=False):
+    return dict(cat=cat, parts=parts, desc=desc, hat=hat)
+
+def render_parts(parts):
+    out = []
+    for p in parts:
+        if isinstance(p, str):
+            out.append(esc(p))
+        elif p[0] == "s":
+            out.append(slot(p[1]))
+        elif p[0] == "r":
+            out.append(slot(p[1], True))
+        elif p[0] == "n":
+            # 巢狀的小積木不掛抽屜標籤——它是 shadow，不是從那個抽屜拖出來的
+            out.append(f'<div class="block b-{p[1]}">' + "".join(render_parts(p[2])) + '</div>')
+    return out
+
+def render_block(b):
+    return blk(b["cat"], *render_parts(b["parts"]), hat=b["hat"])
+
+BLOCKS = [
+    # ---- 基本（藍色）----
+    B("basic", ["顯示數字 ", ("s", "0")], "在螢幕上寫一個數字"),
+    B("basic", ["顯示指示燈 ", ("s", "5×5 格子")], "點格子，自己畫一張圖"),
+    B("basic", ["顯示圖示 ", ("s", "❤️")], "從現成的小圖裡挑一張"),
+    B("basic", ["顯示文字 ", ("s", "Hello!")], "讓字一個一個滑過去"),
+    B("basic", ["清空畫面"], "把 25 顆燈全部關掉"),
+    B("basic", ["重複無限次"], "裡面的事一直做，不會停", hat=True),
+    B("basic", [("s", "當啟動時")], "一開機就做裡面的事，只做一次", hat=True),
+    B("basic", ["暫停 ", ("s", "100"), " 毫秒"], "停一下下再做下一件（500 就是半秒）"),
+    B("basic", ["顯示箭頭 ", ("n", "math", ["箭頭數字 ", ("r", "北")])], "秀出一個指方向的箭頭"),
+    # ---- 輸入（紫紅色）----
+    B("event", ["當按鈕 ", ("r", "A"), " 被按下"], "你按 A，它才做裡面的事", hat=True),
+    B("event", ["當姿勢 ", ("r", "晃動"), " 發生"], "你搖它、翻它、歪一邊，它就做", hat=True),
+    B("event", ["當引腳 ", ("r", "P0"), " 被按下"], "手碰到金色的孔就做", hat=True),
+    B("event", ["按鈕 ", ("r", "A"), " 被按下？"], "回答「現在有沒有在按」"),
+    B("event", ["引腳 ", ("r", "P0"), " 被按下？"], "回答「金色的孔現在有沒有被碰」"),
+    B("event", ["光線感測值"], "它感覺到的亮度（0 全黑、255 很亮）"),
+    B("event", ["溫度感測值 (°C)"], "它感覺到的溫度"),
+    # ---- 音效（紅色）----
+    B("music", ["play tone ", ("s", "中音 C"), " for ", ("s", "1 拍"), " ", ("s", "until done")],
+      "彈一個音，彈完會自己停。上面是英文，找最長的那塊"),
+    B("music", ["演奏 音階 ", ("s", "中音 C")], "也是彈一個音，但它不會自己停"),
+    B("music", ["rest for ", ("s", "1 拍")], "安靜一下下，不出聲"),
+    B("music", ["停止播放所有音效"], "叫它閉嘴，馬上安靜"),
+    # ---- LED（深紫色）----
+    B("led", ["點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈亮起來"),
+    B("led", ["不點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈熄掉"),
+    B("led", ["點的狀態切換 x ", ("s", "0"), " y ", ("s", "0")], "亮的變暗、暗的變亮"),
+    B("led", ["點的狀態 x ", ("s", "0"), " y ", ("s", "0")], "回答「那顆燈現在亮不亮」"),
+    B("led", ["燈光 亮度設為 ", ("s", "255")], "整片燈調亮或調暗"),
+    # ---- 廣播（粉紅色）----
+    B("radio", ["廣播群組設為 ", ("s", "1")], "跟朋友約好同一個暗號"),
+    B("radio", ["廣播發送數字 ", ("s", "0")], "隔空喊一個數字出去"),
+    B("radio", ["廣播發送文字 ", ("s", " ")], "隔空喊一句話出去"),
+    B("radio", ["當收到廣播數字 ", ("r", "receivedNumber")], "聽到別人喊數字就做", hat=True),
+    B("radio", ["當收到廣播文字 ", ("r", "receivedString")], "聽到別人喊話就做", hat=True),
+    # ---- 迴圈（綠色）----
+    B("loop", ["重複 ", ("s", "4"), " 次 執行"], "裡面的事做 4 遍就停"),
+    B("loop", ["重複 判斷 ", ("s", "false"), " 執行"], "只要條件還成立，就一直做"),
+    B("loop", ["計次 ", ("r", "index"), " 從 0 到 ", ("s", "4"), " 執行"], "從 0 數到 4，一邊數一邊做"),
+    # ---- 邏輯（藍綠色）----
+    B("logic", ["如果 ", ("s", "　"), " 那麼"], "條件成立才做裡面的事"),
+    B("logic", ["如果 ", ("s", "　"), " 那麼 … 否則"], "岔路口：成立走上面，不成立走下面"),
+    B("logic", [("s", "0"), " = ", ("s", "0")], "問「這兩個一樣嗎」"),
+    B("logic", [("s", "0"), " < ", ("s", "0")], "問「左邊比右邊小嗎」"),
+    B("logic", [("s", "　"), " 且 ", ("s", "　")], "兩邊都成立，才算成立"),
+    B("logic", [("s", "　"), " 或 ", ("s", "　")], "只要一邊成立，就算成立"),
+    B("logic", ["true"], "「對」。旁邊還有一塊 false，是「不對」"),
+    # ---- 變數（深紅色）----
+    B("var", ["變數 ", ("s", "x"), " 設為 ", ("s", "0")], "把盒子裡的東西整個換掉"),
+    B("var", ["變數 ", ("s", "x"), " 改變 ", ("s", "1")], "在原本的數字上再加"),
+    B("var", [("s", "x")], "圓圓的那塊，就是盒子裡現在裝的數字"),
+    # ---- 數學（紫色）----
+    B("math", [("s", "0"), " + ", ("s", "0")], "加起來"),
+    B("math", [("s", "0"), " - ", ("s", "0")], "減掉"),
+    B("math", [("s", "0"), " × ", ("s", "0")], "乘起來"),
+    B("math", [("s", "0"), " / ", ("s", "0")], "除以"),
+    B("math", ["隨機取數 ", ("s", "0"), " 到 ", ("s", "10")], "抽籤，每次給不一樣的數字"),
+]
+
+DEX_CATS = ["basic", "event", "music", "led", "radio", "loop", "logic", "var", "math"]
+
+# ================= 積木圖鑑 101 =================
+def build_101():
+    total = len(BLOCKS)
+
+    tabs, panels = [], []
+    for ci, c in enumerate(DEX_CATS):
+        name, color = DRAWER[c]
+        items = [(i, b) for i, b in enumerate(BLOCKS) if b["cat"] == c]
+        cur = " cur" if ci == 0 else ""
+        tabs.append(f'<button class="dextab{cur}" data-cat="{c}">{dot(c)}'
+                    f'<span>{esc(name)}</span><span class="cnt">{len(items)}</span></button>')
+        cards = []
+        for i, b in items:
+            cards.append(
+                f'<div class="dexcard" data-i="{i}" data-cat="{c}">'
+                f'<span class="box"></span>'
+                f'<div class="bwrap">{render_block(b)}</div>'
+                f'<p class="d">{esc(b["desc"])}</p>'
+                f'<span class="medal">🏅</span></div>')
+        panels.append(f'<div class="dexpanel{cur}" data-cat="{c}">' + "".join(cards) + '</div>')
+
+    opts = "".join(
+        f'<button class="qopt" data-cat="{c}">{dot(c)}<span>{esc(DRAWER[c][0])}</span></button>'
+        for c in DEX_CATS)
+
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 積木圖鑑</div>'
+        '<span class="eyebrow">認識積木</span>'
+        '<span id="dexBadge" class="eyebrow" style="display:none;background:var(--go);margin-left:8px">'
+        '🎉 全部收集完成！</span>'
+        '<h1>🔍 積木圖鑑 101</h1>'
+
+        + goal("🗂️", f"把 <b>{total} 塊</b>積木看熟，以後上課<b>不用一直找</b>。")
+
+        + '<p>micro:bit 的積木放在<b>九個抽屜</b>裡。</p>'
+        '<p>每個抽屜有自己的<b>顏色</b>。顏色記起來，就找得很快 🎨</p>'
+
+        + '<div class="bar101"><div class="fill" id="p101fill"></div>'
+        '<span class="txt">收集了 <b id="p101">0</b> / ' + str(total) + ' 塊</span></div>'
+
+        + '<div class="modes">'
+        '<button class="mode cur" id="modeDex">📖 翻圖鑑</button>'
+        '<button class="mode" id="modeQuiz">🎯 來考考我</button>'
+        '</div>'
+
+        # ---- 圖鑑 ----
+        + '<section class="dex" id="dex">'
+        + '<div class="dextabs">' + "".join(tabs) + '</div>'
+        + note("👆 怎麼玩", "點一下卡片，就表示「這塊我看過了」✅<br>"
+                           "九個抽屜都翻一翻，再去玩「來考考我」。")
+        + "".join(panels)
+        + '</section>'
+
+        # ---- 測驗 ----
+        + '<section class="quiz" id="quiz" hidden>'
+        '<div class="qhead">這塊積木在<b>哪一個抽屜</b>？</div>'
+        '<div class="qblock" id="qblock"></div>'
+        '<div class="quizopts">' + opts + '</div>'
+        '<div class="qmsg" id="qmsg"></div>'
+        '<button class="btn g" id="qnext" style="display:none">下一題 →</button>'
+        '</section>'
+
+        + '<div class="nav"><a class="btn ghost" href="index.html">← 回地圖</a>'
+        '<span class="sp"></span>'
+        '<a class="btn g" href="l0.html">準備篇：送進板子 →</a></div>'
+    )
+    open(os.path.join(REPO, "101.html"), "w").write(
+        page("101", body, "積木圖鑑 101：認識所有積木", ' data-lesson="101"'))
+
 # ================= 首頁 =================
 def build_index():
     cards = ['<div class="grid">']
@@ -237,6 +401,12 @@ def build_index():
         '① 去<b>哪個抽屜</b>找積木（有顏色小圓點幫你認）<br>'
         '② 拼完<b>長什麼樣子</b><br>'
         '③ 螢幕上<b>應該看到什麼</b>——看到了才往下走 👀</div>'
+        '<h2>先來認識積木 🔍</h2>'
+        '<a class="bigcard" href="101.html"><span class="em">🗂️</span>'
+        '<span class="tx"><b>積木圖鑑 101</b>'
+        f'<span>把 {len(BLOCKS)} 塊積木看熟，上課就不用一直找。<br>'
+        '翻完再玩「這塊在哪個抽屜？」小測驗 🎯</span></span>'
+        '<span class="go">開始 →</span></a>'
         '<h2>開始冒險 🚀</h2>'
         '<p class="lead" style="margin-top:0">從<b>準備篇</b>開始，一關一關闖。</p>'
         + "".join(cards) +
@@ -1382,11 +1552,14 @@ def build_l12():
 
 def main():
     build_index()
+    build_101()
     build_l0(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6()
     build_l7(); build_l8(); build_l9(); build_l10(); build_l11(); build_l12()
     opened = [L['id'] for L in LESSONS if L['status'] == 'open']
-    print("已生成：index.html, " + ", ".join(f"{i}.html" for i in opened))
+    print("已生成：index.html, 101.html, " + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程（{len(opened)}）：{opened}")
+    per = {c: sum(1 for b in BLOCKS if b['cat'] == c) for c in DEX_CATS}
+    print(f"積木圖鑑（{len(BLOCKS)} 塊）：" + "、".join(f"{DRAWER[c][0]} {n}" for c, n in per.items()))
 
 if __name__ == "__main__":
     main()
