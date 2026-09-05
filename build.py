@@ -75,10 +75,14 @@ def lesson_no(L):
 
 def sidebar(cur):
     rows = ['<nav class="outline"><div class="cap">🗺️ 課程地圖</div>']
-    # 積木圖鑑不是一課，所以不放進 LESSONS（免得課程編號跟著跑掉），單獨釘在最上面。
-    c101 = " cur" if cur == "101" else ""
-    rows.append(f'<a class="lrow tool{c101}" href="101.html"><span class="em">🔍</span>'
-                f'<span>積木圖鑑 101</span></a>')
+    # 圖鑑和遊戲區都不是「課」，所以不放進 LESSONS（免得課程編號跟著跑掉），單獨釘在最上面。
+    cb = " cur" if cur == "blocks" else ""
+    rows.append(f'<a class="lrow tool{cb}" href="blocks.html"><span class="em">🔍</span>'
+                f'<span>積木圖鑑</span></a>')
+    # 在任何一個遊戲頁裡，都高亮「101 遊戲區」這一列
+    cg = " cur" if cur == "101" or cur in [g["id"] for g in GAMES] else ""
+    rows.append(f'<a class="lrow tool last{cg}" href="101.html"><span class="em">🎮</span>'
+                f'<span>101 遊戲區</span></a>')
     for i, L in enumerate(LESSONS):
         pre = "準備 ·" if L["id"] == "l0" else f"{i}."
         if L["status"] == "open":
@@ -215,13 +219,14 @@ def top(lid, label, title):
 def write(lid, body, title):
     open(os.path.join(REPO, f"{lid}.html"), "w").write(page(lid, body, title, f' data-lesson="{lid}"'))
 
-# ================= 積木圖鑑 101 的資料表 =================
+# ================= 積木圖鑑的資料表 =================
 # 九個抽屜的常用積木，全部實測自 makecode.microbit.org zh-TW（編輯器 v9.0.12）。
 # parts 的寫法：純字串＝積木上的文字，("s",x)＝白色方框，("r",x)＝圓角下拉，
 #              ("n",cat,[...])＝積木裡面還卡著一塊小積木。
 # 積木上的字一律照螢幕，desc（一句話）才用孩子聽得懂的講法。
-def B(cat, parts, desc, hat=False):
-    return dict(cat=cat, parts=parts, desc=desc, hat=hat)
+# id 是給遊戲頁宣告「我用到哪幾塊」用的，改動要同步 GAMES 的 uses（build 時會檢查）。
+def B(bid, cat, parts, desc, hat=False):
+    return dict(id=bid, cat=cat, parts=parts, desc=desc, hat=hat)
 
 def render_parts(parts):
     out = []
@@ -242,69 +247,69 @@ def render_block(b):
 
 BLOCKS = [
     # ---- 基本（藍色）----
-    B("basic", ["顯示數字 ", ("s", "0")], "在螢幕上寫一個數字"),
-    B("basic", ["顯示指示燈 ", ("s", "5×5 格子")], "點格子，自己畫一張圖"),
-    B("basic", ["顯示圖示 ", ("s", "❤️")], "從現成的小圖裡挑一張"),
-    B("basic", ["顯示文字 ", ("s", "Hello!")], "讓字一個一個滑過去"),
-    B("basic", ["清空畫面"], "把 25 顆燈全部關掉"),
-    B("basic", ["重複無限次"], "裡面的事一直做，不會停", hat=True),
-    B("basic", [("s", "當啟動時")], "一開機就做裡面的事，只做一次", hat=True),
-    B("basic", ["暫停 ", ("s", "100"), " 毫秒"], "停一下下再做下一件（500 就是半秒）"),
-    B("basic", ["顯示箭頭 ", ("n", "math", ["箭頭數字 ", ("r", "北")])], "秀出一個指方向的箭頭"),
+    B("basic.showNumber", "basic", ["顯示數字 ", ("s", "0")], "在螢幕上寫一個數字"),
+    B("basic.showLeds", "basic", ["顯示指示燈 ", ("s", "5×5 格子")], "點格子，自己畫一張圖"),
+    B("basic.showIcon", "basic", ["顯示圖示 ", ("s", "❤️")], "從現成的小圖裡挑一張"),
+    B("basic.showString", "basic", ["顯示文字 ", ("s", "Hello!")], "讓字一個一個滑過去"),
+    B("basic.clearScreen", "basic", ["清空畫面"], "把 25 顆燈全部關掉"),
+    B("basic.forever", "basic", ["重複無限次"], "裡面的事一直做，不會停", hat=True),
+    B("basic.onStart", "basic", [("s", "當啟動時")], "一開機就做裡面的事，只做一次", hat=True),
+    B("basic.pause", "basic", ["暫停 ", ("s", "100"), " 毫秒"], "停一下下再做下一件（500 就是半秒）"),
+    B("basic.showArrow", "basic", ["顯示箭頭 ", ("n", "math", ["箭頭數字 ", ("r", "北")])], "秀出一個指方向的箭頭"),
     # ---- 輸入（紫紅色）----
-    B("event", ["當按鈕 ", ("r", "A"), " 被按下"], "你按 A，它才做裡面的事", hat=True),
-    B("event", ["當姿勢 ", ("r", "晃動"), " 發生"], "你搖它、翻它、歪一邊，它就做", hat=True),
-    B("event", ["當引腳 ", ("r", "P0"), " 被按下"], "手碰到金色的孔就做", hat=True),
-    B("event", ["按鈕 ", ("r", "A"), " 被按下？"], "回答「現在有沒有在按」"),
-    B("event", ["引腳 ", ("r", "P0"), " 被按下？"], "回答「金色的孔現在有沒有被碰」"),
-    B("event", ["光線感測值"], "它感覺到的亮度（0 全黑、255 很亮）"),
-    B("event", ["溫度感測值 (°C)"], "它感覺到的溫度"),
+    B("event.onButton", "event", ["當按鈕 ", ("r", "A"), " 被按下"], "你按 A，它才做裡面的事", hat=True),
+    B("event.onGesture", "event", ["當姿勢 ", ("r", "晃動"), " 發生"], "你搖它、翻它、歪一邊，它就做", hat=True),
+    B("event.onPin", "event", ["當引腳 ", ("r", "P0"), " 被按下"], "手碰到金色的孔就做", hat=True),
+    B("event.buttonIsPressed", "event", ["按鈕 ", ("r", "A"), " 被按下？"], "回答「現在有沒有在按」"),
+    B("event.pinIsPressed", "event", ["引腳 ", ("r", "P0"), " 被按下？"], "回答「金色的孔現在有沒有被碰」"),
+    B("event.lightLevel", "event", ["光線感測值"], "它感覺到的亮度（0 全黑、255 很亮）"),
+    B("event.temperature", "event", ["溫度感測值 (°C)"], "它感覺到的溫度"),
     # ---- 音效（紅色）----
-    B("music", ["play tone ", ("s", "中音 C"), " for ", ("s", "1 拍"), " ", ("s", "until done")],
+    B("music.playTone", "music", ["play tone ", ("s", "中音 C"), " for ", ("s", "1 拍"), " ", ("s", "until done")],
       "彈一個音，彈完會自己停。上面是英文，找最長的那塊"),
-    B("music", ["演奏 音階 ", ("s", "中音 C")], "也是彈一個音，但它不會自己停"),
-    B("music", ["rest for ", ("s", "1 拍")], "安靜一下下，不出聲"),
-    B("music", ["停止播放所有音效"], "叫它閉嘴，馬上安靜"),
+    B("music.ringTone", "music", ["演奏 音階 ", ("s", "中音 C")], "也是彈一個音，但它不會自己停"),
+    B("music.rest", "music", ["rest for ", ("s", "1 拍")], "安靜一下下，不出聲"),
+    B("music.stopAll", "music", ["停止播放所有音效"], "叫它閉嘴，馬上安靜"),
     # ---- LED（深紫色）----
-    B("led", ["點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈亮起來"),
-    B("led", ["不點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈熄掉"),
-    B("led", ["點的狀態切換 x ", ("s", "0"), " y ", ("s", "0")], "亮的變暗、暗的變亮"),
-    B("led", ["點的狀態 x ", ("s", "0"), " y ", ("s", "0")], "回答「那顆燈現在亮不亮」"),
-    B("led", ["燈光 亮度設為 ", ("s", "255")], "整片燈調亮或調暗"),
+    B("led.plot", "led", ["點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈亮起來"),
+    B("led.unplot", "led", ["不點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈熄掉"),
+    B("led.toggle", "led", ["點的狀態切換 x ", ("s", "0"), " y ", ("s", "0")], "亮的變暗、暗的變亮"),
+    B("led.point", "led", ["點的狀態 x ", ("s", "0"), " y ", ("s", "0")], "回答「那顆燈現在亮不亮」"),
+    B("led.brightness", "led", ["燈光 亮度設為 ", ("s", "255")], "整片燈調亮或調暗"),
     # ---- 廣播（粉紅色）----
-    B("radio", ["廣播群組設為 ", ("s", "1")], "跟朋友約好同一個暗號"),
-    B("radio", ["廣播發送數字 ", ("s", "0")], "隔空喊一個數字出去"),
-    B("radio", ["廣播發送文字 ", ("s", " ")], "隔空喊一句話出去"),
-    B("radio", ["當收到廣播數字 ", ("r", "receivedNumber")], "聽到別人喊數字就做", hat=True),
-    B("radio", ["當收到廣播文字 ", ("r", "receivedString")], "聽到別人喊話就做", hat=True),
+    B("radio.setGroup", "radio", ["廣播群組設為 ", ("s", "1")], "跟朋友約好同一個暗號"),
+    B("radio.sendNumber", "radio", ["廣播發送數字 ", ("s", "0")], "隔空喊一個數字出去"),
+    B("radio.sendString", "radio", ["廣播發送文字 ", ("s", " ")], "隔空喊一句話出去"),
+    B("radio.onNumber", "radio", ["當收到廣播數字 ", ("r", "receivedNumber")], "聽到別人喊數字就做", hat=True),
+    B("radio.onString", "radio", ["當收到廣播文字 ", ("r", "receivedString")], "聽到別人喊話就做", hat=True),
     # ---- 迴圈（綠色）----
-    B("loop", ["重複 ", ("s", "4"), " 次 執行"], "裡面的事做 4 遍就停"),
-    B("loop", ["重複 判斷 ", ("s", "false"), " 執行"], "只要條件還成立，就一直做"),
-    B("loop", ["計次 ", ("r", "index"), " 從 0 到 ", ("s", "4"), " 執行"], "從 0 數到 4，一邊數一邊做"),
+    B("loop.repeat", "loop", ["重複 ", ("s", "4"), " 次 執行"], "裡面的事做 4 遍就停"),
+    B("loop.while", "loop", ["重複 判斷 ", ("s", "false"), " 執行"], "只要條件還成立，就一直做"),
+    B("loop.forIndex", "loop", ["計次 ", ("r", "index"), " 從 0 到 ", ("s", "4"), " 執行"], "從 0 數到 4，一邊數一邊做"),
     # ---- 邏輯（藍綠色）----
-    B("logic", ["如果 ", ("s", "　"), " 那麼"], "條件成立才做裡面的事"),
-    B("logic", ["如果 ", ("s", "　"), " 那麼 … 否則"], "岔路口：成立走上面，不成立走下面"),
-    B("logic", [("s", "0"), " = ", ("s", "0")], "問「這兩個一樣嗎」"),
-    B("logic", [("s", "0"), " < ", ("s", "0")], "問「左邊比右邊小嗎」"),
-    B("logic", [("s", "　"), " 且 ", ("s", "　")], "兩邊都成立，才算成立"),
-    B("logic", [("s", "　"), " 或 ", ("s", "　")], "只要一邊成立，就算成立"),
-    B("logic", ["true"], "「對」。旁邊還有一塊 false，是「不對」"),
+    B("logic.if", "logic", ["如果 ", ("s", "　"), " 那麼"], "條件成立才做裡面的事"),
+    B("logic.ifElse", "logic", ["如果 ", ("s", "　"), " 那麼 … 否則"], "岔路口：成立走上面，不成立走下面"),
+    B("logic.eq", "logic", [("s", "0"), " = ", ("s", "0")], "問「這兩個一樣嗎」"),
+    B("logic.lt", "logic", [("s", "0"), " < ", ("s", "0")], "問「左邊比右邊小嗎」"),
+    B("logic.and", "logic", [("s", "　"), " 且 ", ("s", "　")], "兩邊都成立，才算成立"),
+    B("logic.or", "logic", [("s", "　"), " 或 ", ("s", "　")], "只要一邊成立，就算成立"),
+    B("logic.true", "logic", ["true"], "「對」。旁邊還有一塊 false，是「不對」"),
     # ---- 變數（深紅色）----
-    B("var", ["變數 ", ("s", "x"), " 設為 ", ("s", "0")], "把盒子裡的東西整個換掉"),
-    B("var", ["變數 ", ("s", "x"), " 改變 ", ("s", "1")], "在原本的數字上再加"),
-    B("var", [("s", "x")], "圓圓的那塊，就是盒子裡現在裝的數字"),
+    B("var.set", "var", ["變數 ", ("s", "x"), " 設為 ", ("s", "0")], "把盒子裡的東西整個換掉"),
+    B("var.change", "var", ["變數 ", ("s", "x"), " 改變 ", ("s", "1")], "在原本的數字上再加"),
+    B("var.get", "var", [("s", "x")], "圓圓的那塊，就是盒子裡現在裝的數字"),
     # ---- 數學（紫色）----
-    B("math", [("s", "0"), " + ", ("s", "0")], "加起來"),
-    B("math", [("s", "0"), " - ", ("s", "0")], "減掉"),
-    B("math", [("s", "0"), " × ", ("s", "0")], "乘起來"),
-    B("math", [("s", "0"), " / ", ("s", "0")], "除以"),
-    B("math", ["隨機取數 ", ("s", "0"), " 到 ", ("s", "10")], "抽籤，每次給不一樣的數字"),
+    B("math.add", "math", [("s", "0"), " + ", ("s", "0")], "加起來"),
+    B("math.sub", "math", [("s", "0"), " - ", ("s", "0")], "減掉"),
+    B("math.mul", "math", [("s", "0"), " × ", ("s", "0")], "乘起來"),
+    B("math.div", "math", [("s", "0"), " / ", ("s", "0")], "除以"),
+    B("math.random", "math", ["隨機取數 ", ("s", "0"), " 到 ", ("s", "10")], "抽籤，每次給不一樣的數字"),
 ]
 
 DEX_CATS = ["basic", "event", "music", "led", "radio", "loop", "logic", "var", "math"]
 
-# ================= 積木圖鑑 101 =================
-def build_101():
+# ================= 積木圖鑑（blocks.html）=================
+def build_blocks():
     total = len(BLOCKS)
 
     tabs, panels = [], []
@@ -333,7 +338,7 @@ def build_101():
         '<span class="eyebrow">認識積木</span>'
         '<span id="dexBadge" class="eyebrow" style="display:none;background:var(--go);margin-left:8px">'
         '🎉 全部收集完成！</span>'
-        '<h1>🔍 積木圖鑑 101</h1>'
+        '<h1>🔍 積木圖鑑</h1>'
 
         + goal("🗂️", f"把 <b>{total} 塊</b>積木看熟，以後上課<b>不用一直找</b>。")
 
@@ -369,8 +374,8 @@ def build_101():
         '<span class="sp"></span>'
         '<a class="btn g" href="l0.html">準備篇：送進板子 →</a></div>'
     )
-    open(os.path.join(REPO, "101.html"), "w").write(
-        page("101", body, "積木圖鑑 101：認識所有積木", ' data-lesson="101"'))
+    open(os.path.join(REPO, "blocks.html"), "w").write(
+        page("blocks", body, "積木圖鑑：認識所有積木", ' data-lesson="blocks"'))
 
 # ================= 首頁 =================
 def build_index():
@@ -401,11 +406,16 @@ def build_index():
         '① 去<b>哪個抽屜</b>找積木（有顏色小圓點幫你認）<br>'
         '② 拼完<b>長什麼樣子</b><br>'
         '③ 螢幕上<b>應該看到什麼</b>——看到了才往下走 👀</div>'
-        '<h2>先來認識積木 🔍</h2>'
-        '<a class="bigcard" href="101.html"><span class="em">🗂️</span>'
-        '<span class="tx"><b>積木圖鑑 101</b>'
+        '<h2>認識積木 ＆ 做遊戲 🎒</h2>'
+        '<a class="bigcard" href="blocks.html"><span class="em">🔍</span>'
+        '<span class="tx"><b>積木圖鑑</b>'
         f'<span>把 {len(BLOCKS)} 塊積木看熟，上課就不用一直找。<br>'
         '翻完再玩「這塊在哪個抽屜？」小測驗 🎯</span></span>'
+        '<span class="go">開始 →</span></a>'
+        '<a class="bigcard game" href="101.html"><span class="em">🎮</span>'
+        '<span class="tx"><b>101 遊戲區</b>'
+        f'<span>用積木做出三個<b>真的能玩</b>的小遊戲：接星星、打地鼠、躲石頭。<br>'
+        f'三個加起來用到 {len(covered_ids())} / {len(BLOCKS)} 塊積木 🧱</span></span>'
         '<span class="go">開始 →</span></a>'
         '<h2>開始冒險 🚀</h2>'
         '<p class="lead" style="margin-top:0">從<b>準備篇</b>開始，一關一關闖。</p>'
@@ -1550,16 +1560,802 @@ def build_l12():
     )
     write("l12", body, "第 12 課：觸摸香蕉鋼琴")
 
+# ================= 101 遊戲區 =================
+# 每個遊戲宣告自己用到哪幾塊積木（BLOCKS 的 id）。build 時會檢查 id 都存在，
+# 並算出三個遊戲合起來的涵蓋率——「用盡可能多的積木」才是可驗證的，不是喊口號。
+GAMES = [
+    dict(id="g1", em="⭐", title="接星星", sub="星星掉下來，左右跑去接住它",
+         uses=[
+             # 基本關
+             "basic.onStart", "basic.forever", "basic.clearScreen", "basic.pause",
+             "basic.showNumber", "led.plot", "var.set", "var.change", "var.get",
+             "math.random", "event.onButton", "logic.if", "logic.ifElse",
+             "logic.eq", "logic.lt", "music.playTone",
+             # 加料關
+             "event.onGesture", "basic.showIcon", "basic.showString", "basic.showLeds",
+             "basic.showArrow", "loop.repeat", "loop.forIndex", "event.lightLevel",
+             "math.sub", "math.mul",
+         ]),
+    dict(id="g2", em="🔨", title="打地鼠", sub="地鼠冒出來，在左邊按 A、右邊按 B",
+         uses=[
+             "basic.onStart", "basic.forever", "basic.clearScreen", "basic.pause",
+             "basic.showNumber", "led.plot", "led.unplot", "var.set", "var.change",
+             "var.get", "math.random", "logic.ifElse", "logic.lt", "music.playTone",
+             "event.buttonIsPressed",
+             # 加料關
+             "loop.while", "logic.true", "logic.or", "led.toggle", "music.rest",
+             "event.onPin", "event.pinIsPressed", "led.brightness", "math.add",
+         ]),
+    dict(id="g3", em="🪨", title="躲石頭", sub="石頭一直掉，左右閃開，活越久分越高",
+         uses=[
+             "basic.onStart", "basic.clearScreen", "basic.pause", "basic.showNumber",
+             "basic.showIcon", "led.plot", "led.point", "var.set", "var.change",
+             "var.get", "math.random", "event.onButton", "logic.if", "logic.and",
+             "logic.eq", "loop.while", "music.ringTone", "music.stopAll",
+             # 加料關
+             "radio.setGroup", "radio.sendNumber", "radio.onNumber",
+             "radio.sendString", "radio.onString", "event.temperature", "loop.repeat",
+         ]),
+]
+
+def _block_by_id(bid):
+    for b in BLOCKS:
+        if b["id"] == bid:
+            return b
+    raise KeyError(f"GAMES 裡的 uses 用到不存在的積木 id：{bid}")
+
+def game_by_id(gid):
+    return [g for g in GAMES if g["id"] == gid][0]
+
+def covered_ids():
+    out = set()
+    for g in GAMES:
+        out |= set(g["uses"])
+    return out
+
+def game_top(gid, label, title):
+    G = game_by_id(gid)
+    return (f'<div class="crumb"><a href="index.html">課程地圖</a> / '
+            f'<a href="101.html">101 遊戲區</a> / {esc(G["title"])}</div>'
+            f'<span class="eyebrow">{esc(label)}</span>' + done_badge() + f'<h1>{title}</h1>')
+
+def stage(emoji, title, text):
+    """基本關／加料關 的分隔標題。"""
+    return (f'<div class="stage"><span class="em">{emoji}</span>'
+            f'<span class="t">{esc(title)}</span><span class="d">{text}</span></div>')
+
+def uses_section(gid):
+    """自動列出這個遊戲用到的積木，重用圖鑑的渲染。"""
+    G = game_by_id(gid)
+    seen, cards = set(), []
+    for bid in G["uses"]:
+        if bid in seen:
+            continue
+        seen.add(bid)
+        b = _block_by_id(bid)
+        cards.append(f'<div class="ucard">{render_block(b)}<p>{esc(b["desc"])}</p></div>')
+    return ('<h2>🧱 這個遊戲用到的積木</h2>'
+            f'<p class="lead" style="margin-top:0">一共 <b>{len(seen)}</b> 塊。'
+            '看不懂哪一塊，就回 <a href="blocks.html">積木圖鑑</a> 翻一翻。</p>'
+            '<div class="uses">' + "".join(cards) + '</div>')
+
+def game_nav(gid):
+    ids = [g["id"] for g in GAMES]
+    i = ids.index(gid)
+    left = '<a class="btn ghost" href="101.html">← 回遊戲區</a>'
+    right = ''
+    if i < len(GAMES) - 1:
+        n = GAMES[i + 1]
+        right = f'<a class="btn g" href="{n["id"]}.html">{n["em"]} {esc(n["title"])} →</a>'
+    return f'<div class="nav">{left}<span class="sp"></span>{right}</div>'
+
+def write_game(gid, body, title):
+    open(os.path.join(REPO, f"{gid}.html"), "w").write(
+        page(gid, body, title, f' data-lesson="{gid}"'))
+
+# ---- 遊戲區首頁 ----
+def build_games_hub():
+    cov = covered_ids()
+    missing = [b for b in BLOCKS if b["id"] not in cov]
+
+    cards = []
+    for g in GAMES:
+        cards.append(f'<a class="gcard" href="{g["id"]}.html"><span class="em">{g["em"]}</span>'
+                     f'<h3>{esc(g["title"])}</h3><p>{esc(g["sub"])}</p>'
+                     f'<span class="n">用到 {len(set(g["uses"]))} 塊積木</span></a>')
+
+    miss_html = ''
+    if missing:
+        items = "".join(f'<div class="ucard">{render_block(b)}<p>{esc(b["desc"])}</p></div>'
+                        for b in missing)
+        miss_html = ('<h2>🕳️ 這三個遊戲沒用到的積木</h2>'
+                     f'<p class="lead" style="margin-top:0">還有 <b>{len(missing)}</b> 塊沒派上用場。'
+                     '想挑戰的話，看看能不能把它塞進你的遊戲裡 💪</p>'
+                     '<div class="uses">' + items + '</div>')
+
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 101 遊戲區</div>'
+        '<span class="eyebrow">動手做遊戲</span>'
+        '<h1>🎮 101 遊戲區</h1>'
+
+        + goal("🕹️", "用積木做出<b>三個真的能玩</b>的小遊戲。")
+
+        + '<p><a href="blocks.html">積木圖鑑</a>是<b>認字</b>，這裡是<b>造句</b> ✍️</p>'
+        '<p>三個遊戲玩法都不一樣，所以會用到<b>不同抽屜</b>的積木。</p>'
+
+        + '<div class="bar101"><div class="fill" style="width:'
+        + f'{len(cov) / len(BLOCKS) * 100:.0f}%"></div>'
+        + f'<span class="txt">三個遊戲一共用到 {len(cov)} / {len(BLOCKS)} 塊積木</span></div>'
+
+        + note("🧩 每個遊戲都分兩段",
+               "<b>🎮 基本關</b>：做完就<b>能玩了</b>。<br>"
+               "<b>🍬 加料關</b>：一關一個小點子，<b>做幾關都可以</b>，隨時停下來都算完成。")
+
+        + '<h2>選一個開始 👇</h2>'
+        + '<div class="gcards">' + "".join(cards) + '</div>'
+
+        + adult("三個遊戲全部做完的份量，遠超過一個小二學生一次吃得下的量。<br>"
+                "建議一次只做一個遊戲的<b>基本關</b>——那本身就是一個完整、能玩、能拿去炫耀的作品。"
+                "加料關留到他自己說「還想再加什麼」的時候再開。<br>"
+                "順序不重要，讓他挑最想玩的那個先做。")
+
+        + miss_html
+        + '<div class="nav"><a class="btn ghost" href="index.html">← 回地圖</a>'
+        '<span class="sp"></span>'
+        '<a class="btn g" href="g1.html">⭐ 接星星 →</a></div>'
+    )
+    open(os.path.join(REPO, "101.html"), "w").write(
+        page("101", body, "101 遊戲區：用積木做三個小遊戲", ' data-lesson="101"'))
+
+# ---- ⭐ 接星星 ----
+def build_g1():
+    star = blk("led", "點亮 x ", slot("sx"), " y ", slot("sy"))
+    me = blk("led", "點亮 x ", slot("px"), " y ", slot("4"))
+
+    body = (
+        game_top("g1", "101 遊戲 · 第一個", "⭐ 接星星") +
+        goal("⭐", "星星從上面掉下來，你在<b>最下面一排</b>左右跑，把它<b>接住</b>。") +
+
+        '<p>畫面最下面那一排是<b>你</b>。</p>'
+        '<p>上面掉下來的是<b>星星</b>。</p>'
+        '<p>接到 → 加分 ＋「叮」；漏接 → 少一條命 ＋「嗚」。</p>'
+
+        + stage("🎮", "基本關", "做完這 10 步，遊戲就<b>可以玩了</b>。")
+
+        + step(1, "做一個盒子記住你在哪",
+               '<p>去 <b>變數</b> 抽屜，建立一個盒子叫 <code>px</code>。</p>'
+               '<p>它記的是「你在<b>左右第幾個</b>」。</p>'
+               + look("抽屜裡多出寫著 <code>px</code> 的積木。")) +
+
+        step(2, "開機時站在正中間",
+             '<p><b>「當啟動時」</b> 裡放 <b>「變數 px 設為 2」</b>。</p>'
+             + prog(blk("basic", slot("當啟動時"), hat=True,
+                        nest_html=blk("var", "變數 ", slot("px"), " 設為 ", slot("2"))))
+             + look("畫面沒變化，是正常的 👍")) +
+
+        step(3, "把你畫出來",
+             '<p><b>「重複無限次」</b> 裡放兩塊：先 <b>「清空畫面」</b>，'
+             '再 <b>「點亮 x y」</b>。</p>'
+             '<p>x 的框框塞圓圓的 <code>px</code>，y 打 <code>4</code>（最下面那排）。</p>'
+             + prog(blk("loop", "重複無限次", hat=True,
+                        nest_html=blk("basic", "清空畫面") + me))
+             + look("<b>最下面</b>中間有一顆燈亮著，就是你 🔆")
+             + leds("....." "\n" "....." "\n" "....." "\n" "....." "\n" "..#..", "這就是你")) +
+
+        step(4, "按 A 往左走",
+             '<p>拉一頂 <b>「當按鈕 A 被按下」</b>，裡面放 '
+             '<b>「變數 px 改變 -1」</b>。</p>'
+             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("-1"))))
+             + look("點 A → 那顆燈往<b>左</b>移一格 ⬅️")) +
+
+        step(5, "按 B 往右走",
+             '<p>做法一樣，按鈕改成 <b>B</b>，數字改成 <code>1</code>。</p>'
+             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
+                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("1"))))
+             + look("A 往左、B 往右。但一直按會<b>跑出畫面</b> 😅 下一步修好 👇")) +
+
+        step(6, "別讓自己跑出去",
+             '<p>在 <b>「重複無限次」</b> 的<b>最上面</b>加兩塊 <b>「如果…那麼」</b>'
+             '（<b>沒有</b>「否則」的那塊）。</p>'
+             + find("logic", "<", "（第二塊要點選單改成 <b>&gt;</b>）")
+             + prog(blk("loop", "重複無限次", hat=True,
+                        nest_html=ifelse(slot("px") + ' &lt; ' + slot("0"),
+                                         blk("var", "變數 ", slot("px"), " 設為 ", slot("0"))) +
+                                  ifelse(slot("px") + ' &gt; ' + slot("4"),
+                                         blk("var", "變數 ", slot("px"), " 設為 ", slot("4")))))
+             + look("走到<b>邊邊就停住</b>，不會再不見了 ✋")
+             + adult("<code>&lt;</code> 和 <code>&gt;</code> 是<b>同一塊</b>積木，"
+                     "點積木上的符號用選單換。孩子常以為要找兩塊不同的。")) +
+
+        step(7, "做星星的兩個盒子",
+             '<p>再建立兩個盒子：<code>sx</code>（星星在左右第幾個）、'
+             '<code>sy</code>（星星掉到第幾排）。</p>'
+             '<p>在 <b>「當啟動時」</b> 裡設定：<code>sy</code> 設為 <code>0</code>，'
+             '<code>sx</code> 設為 <b>隨機取數 0 到 4</b>。</p>'
+             + prog(blk("basic", slot("當啟動時"), hat=True,
+                        nest_html=blk("var", "變數 ", slot("px"), " 設為 ", slot("2")) +
+                                  blk("var", "變數 ", slot("sy"), " 設為 ", slot("0")) +
+                                  blk("var", "變數 ", slot("sx"), " 設為 ",
+                                      blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4")))))
+             + look("還是只看得到你自己。下一步星星才會出現 👇")) +
+
+        step(8, "把星星畫出來，讓它掉下來",
+             '<p>在「重複無限次」裡，<b>你的下面</b>再加三塊：</p>'
+             + prog(blk("loop", "重複無限次", hat=True,
+                        nest_html=me + star +
+                                  blk("basic", "暫停 ", slot("400"), " 毫秒") +
+                                  blk("var", "變數 ", slot("sy"), " 改變 ", slot("1"))))
+             + look("星星從<b>最上面</b>一格一格<b>往下掉</b> ⭐ 掉出去就不見了。")) +
+
+        step(9, "接到了嗎？",
+             '<p>在「sy 改變 1」的<b>下面</b>加一塊 <b>「如果…那麼」</b>，'
+             '條件是 <b>sy &gt; 4</b>（星星掉出去了，該算帳）。</p>'
+             '<p>裡面再放一塊<b>有「否則」</b>的，條件是 <b>sx = px</b>。</p>'
+             + prog(ifelse(slot("sy") + ' &gt; ' + slot("4"),
+                           ifelse(slot("sx") + ' = ' + slot("px"),
+                                  '<div class="plainrow">接到了 → 等一下放</div>',
+                                  '<div class="plainrow">漏接了 → 等一下放</div>')))
+             + look("架子搭好了，還沒放東西進去。")) +
+
+        step(10, "接到加分，漏接扣命",
+             '<p>先再建立兩個盒子：<code>score</code>（分數）和 <code>life</code>（命）。</p>'
+             '<p>在「當啟動時」裡 <code>score</code> 設為 <code>0</code>、'
+             '<code>life</code> 設為 <code>3</code>。</p>'
+             '<p>然後把兩條路填滿：</p>'
+             + prog(ifelse(slot("sy") + ' &gt; ' + slot("4"),
+                           ifelse(slot("sx") + ' = ' + slot("px"),
+                                  blk("var", "變數 ", slot("score"), " 改變 ", slot("1")) +
+                                  playtone("高音 C", "1/4 拍"),
+                                  blk("var", "變數 ", slot("life"), " 改變 ", slot("-1")) +
+                                  playtone("低音 C", "1/4 拍")) +
+                           blk("var", "變數 ", slot("sy"), " 設為 ", slot("0")) +
+                           blk("var", "變數 ", slot("sx"), " 設為 ",
+                               blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4")))))
+             + note("⚠️ 最後兩塊要放在<b>外面</b>",
+                    "「sy 設為 0」和「sx 設為 隨機」要放在<b>「如果 sy &gt; 4」的裡面</b>、"
+                    "但在<b>「否則」的外面</b>——不管接到沒接到，都要放一顆新星星。")
+             + look("<b>可以玩了！</b> 接到「叮」⭐ 漏接「嗚」😵")
+             + adult("到這裡就是一個完整的遊戲了，可以先停在這裡讓他玩個過癮。<br>"
+                     "後面的加料關是「還想加什麼」才做，做幾關都可以。")) +
+
+        stage("🍬", "加料關", "一關一個小點子，<b>做幾關都可以</b>，隨時停下來都算完成。")
+
+        + step(11, "加料 ①：看得到分數",
+               '<p>拉一頂 <b>「當姿勢 晃動 發生」</b>，裡面放 '
+               '<b>「顯示數字 score」</b>。</p>'
+               + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
+                          nest_html=blk("basic", "顯示數字 ", slot("score"))))
+               + look("<b>搖一搖</b> → 跳出現在幾分 🔢")
+               + '<p class="usedhint">這一關多用到：<b>當姿勢 晃動 發生</b>、<b>顯示數字</b></p>') +
+
+        step(12, "加料 ②：沒命就結束",
+             '<p>在「重複無限次」<b>最下面</b>加一塊 <b>「如果 life &lt; 1 那麼」</b>。</p>'
+             '<p>裡面放<b>哭臉</b>、<b>顯示數字 score</b>，再放一塊 '
+             '<b>「暫停 2000 毫秒」</b>。</p>'
+             + prog(ifelse(slot("life") + ' &lt; ' + slot("1"),
+                           blk("basic", "顯示圖示 ", slot("😢")) +
+                           blk("basic", "顯示數字 ", slot("score")) +
+                           blk("basic", "暫停 ", slot("2000"), " 毫秒")))
+             + look("三條命用完 → 哭臉 ＋ 你的分數 😢")
+             + '<p class="usedhint">這一關多用到：<b>顯示圖示</b></p>') +
+
+        step(13, "加料 ③：開場說「GO」",
+             '<p>在 <b>「當啟動時」</b> 的<b>最上面</b>加一塊 <b>「顯示文字」</b>，'
+             '打上 <code>GO</code>。</p>'
+             + prog(blk("basic", slot("當啟動時"), hat=True,
+                        nest_html=blk("basic", "顯示文字 ", slot("GO"))))
+             + look("開機先跑過 <b>GO</b>，再開始掉星星 🏁")
+             + '<p class="usedhint">這一關多用到：<b>顯示文字</b></p>') +
+
+        step(14, "加料 ④：開場來個掃描動畫",
+             '<p>在 <code>GO</code> 的下面加一塊 '
+             '<b>「計次 index 從 0 到 4 執行」</b>（<b>迴圈</b>抽屜）。</p>'
+             '<p>裡面放 <b>「點亮 x index y 2」</b> 和 <b>「暫停 100 毫秒」</b>。</p>'
+             + prog(blk("loop", "計次 ", slot("index", True), " 從 0 到 ", slot("4"), " 執行",
+                        hat=True,
+                        nest_html=blk("led", "點亮 x ", slot("index"), " y ", slot("2")) +
+                                  blk("basic", "暫停 ", slot("100"), " 毫秒")))
+             + look("開機時中間那排燈<b>一顆一顆亮過去</b> ➡️")
+             + adult("「計次」就是「從 0 數到 4，每數一次做一遍」。"
+                     "它跟第 5 課的「重複 N 次」差別是：計次<b>知道自己數到幾</b>，"
+                     "那個數字就放在 <code>index</code> 裡，可以直接拿來用。")
+             + '<p class="usedhint">這一關多用到：<b>計次 index 從 0 到 4 執行</b></p>') +
+
+        step(15, "加料 ⑤：畫一張自己的開場圖",
+             '<p>在掃描動畫下面加一塊 <b>「顯示指示燈」</b>，點格子畫一顆星星。</p>'
+             + prog(blk("basic", "顯示指示燈 ", slot("⭐ 星星")))
+             + leds(STAR, "照這樣點")
+             + look("開機：星星圖 → 掃描 → GO → 開始玩 ✨")
+             + '<p class="usedhint">這一關多用到：<b>顯示指示燈</b></p>') +
+
+        step(16, "加料 ⑥：星星在哪邊？給個提示",
+             '<p>覺得太難的話，讓它先<b>用箭頭告訴你</b>星星在左邊還右邊。</p>'
+             '<p>在「重複無限次」裡加 <b>「如果 sx &lt; px 那麼」</b> → '
+             '<b>顯示箭頭</b> 選<b>西</b>（左）；<b>否則</b> → 選<b>東</b>（右）。</p>'
+             + prog(ifelse(slot("sx") + ' &lt; ' + slot("px"),
+                           blk("basic", "顯示箭頭 ",
+                               '<div class="block b-math">箭頭數字 ' + slot("西") + '</div>'),
+                           blk("basic", "顯示箭頭 ",
+                               '<div class="block b-math">箭頭數字 ' + slot("東") + '</div>')))
+             + note("🧭 箭頭用的是<b>方位</b>", "<b>西</b> 是左邊、<b>東</b> 是右邊。")
+             + look("箭頭一直指著星星的方向 🧭（會蓋住畫面，玩過癮就可以拿掉）")
+             + '<p class="usedhint">這一關多用到：<b>顯示箭頭</b></p>') +
+
+        step(17, "加料 ⑦：越玩越快",
+             '<p>把 <b>「暫停 400 毫秒」</b> 裡的 <code>400</code> 換成一個<b>算式</b>：</p>'
+             '<p>去 <b>數學</b> 抽屜拿 <b>減法</b> 和 <b>乘法</b>，拼成 '
+             '<b>400 - score × 20</b>。</p>'
+             + prog(blk("basic", "暫停 ",
+                        blk("math", slot("400"), " - ",
+                            blk("math", slot("score"), " × ", slot("20"))),
+                        " 毫秒"))
+             + look("分數越高，星星掉得<b>越快</b> 🔥")
+             + adult("分數很高時這個算式會變成負數，micro:bit 會當成 0（全速）。"
+                     "對玩起來沒問題，但如果他問「為什麼不會更快了」，這就是答案。")
+             + '<p class="usedhint">這一關多用到：<b>減法</b>、<b>乘法</b></p>') +
+
+        step(18, "加料 ⑧：蓋住就變慢動作",
+             '<p>用 <b>光線感測值</b> 做一個「作弊鍵」：手一蓋住板子，星星就掉得慢。</p>'
+             '<p>在「重複無限次」裡加 <b>「如果 光線感測值 &lt; 50 那麼」</b> → '
+             '<b>暫停 300 毫秒</b>。</p>'
+             + prog(ifelse(blk("event", "光線感測值") + ' &lt; ' + slot("50"),
+                           blk("basic", "暫停 ", slot("300"), " 毫秒")))
+             + look("用手<b>蓋住</b>板子 → 星星慢下來 🐢 放開 → 恢復。")
+             + '<p class="usedhint">這一關多用到：<b>光線感測值</b></p>') +
+
+        step(19, "加料 ⑨：破 10 分放煙火",
+             '<p>在「接到了」那一條路裡，加 <b>「如果 score = 10 那麼」</b>。</p>'
+             '<p>裡面放 <b>「重複 5 次 執行」</b>，'
+             '裡面再放<b>笑臉</b>、<b>暫停 100</b>、<b>清空畫面</b>、<b>暫停 100</b>。</p>'
+             + prog(ifelse(slot("score") + ' = ' + slot("10"),
+                           blk("loop", "重複 ", slot("5"), " 次 執行",
+                               nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
+                                         blk("basic", "暫停 ", slot("100"), " 毫秒") +
+                                         blk("basic", "清空畫面") +
+                                         blk("basic", "暫停 ", slot("100"), " 毫秒"))))
+             + look("接到第 10 顆星星 → 笑臉<b>閃五下</b>慶祝 🎉")
+             + '<p class="usedhint">這一關多用到：<b>重複 N 次 執行</b></p>') +
+
+        tryit("把 <code>life</code> 從 <b>3</b> 改成 <b>1</b>，變成超難模式。",
+              "把星星改成<b>兩顆</b>（再做一組 <code>sx2</code>、<code>sy2</code>）。") +
+
+        uses_section("g1") +
+
+        final("g1", [
+            "我做出了一個真的能玩的遊戲",
+            "我知道 px、sx、sy 各自記住什麼",
+            "我會用「如果…那麼…否則」判斷接到沒接到",
+        ]) + game_nav("g1")
+    )
+    write_game("g1", body, "101 遊戲：接星星")
+
+# ---- 🔨 打地鼠 ----
+def build_g2():
+    body = (
+        game_top("g2", "101 遊戲 · 第二個", "🔨 打地鼠") +
+        goal("🔨", "地鼠隨機冒出來。在<b>左邊</b>就按 <b>A</b>，在<b>右邊</b>就按 <b>B</b>。") +
+
+        '<p>這個遊戲跟接星星<b>寫法不一樣</b>。</p>'
+        '<p>接星星是「一直畫、一直動」；打地鼠是「<b>等你按</b>，時間到就算了」。</p>'
+
+        + stage("🎮", "基本關", "做完這 8 步，遊戲就<b>可以玩了</b>。")
+
+        + step(1, "做地鼠的盒子",
+               '<p>建立兩個盒子：<code>mx</code>（地鼠在左右第幾個）、'
+               '<code>score</code>（分數）。</p>'
+               '<p>在 <b>「當啟動時」</b> 裡把 <code>score</code> 設為 <code>0</code>。</p>'
+               + look("抽屜裡多出 <code>mx</code> 和 <code>score</code>。")) +
+
+        step(2, "讓地鼠隨機冒出來",
+             '<p>在 <b>「重複無限次」</b> 裡放：<b>清空畫面</b>，'
+             '再把 <code>mx</code> 設為 <b>隨機取數 0 到 4</b>。</p>'
+             + prog(blk("loop", "重複無限次", hat=True,
+                        nest_html=blk("basic", "清空畫面") +
+                                  blk("var", "變數 ", slot("mx"), " 設為 ",
+                                      blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4")))))
+             + look("畫面還是黑的——盒子換了數字，但還沒畫出來。")) +
+
+        step(3, "把地鼠點亮",
+             find("led", "點亮 x 0 y 0")
+             + '<p>x 塞圓圓的 <code>mx</code>，y 打 <code>2</code>（中間那排）。</p>'
+             + prog(blk("led", "點亮 x ", slot("mx"), " y ", slot("2")))
+             + look("中間那排<b>一直有一顆燈在亂跳</b> 🐹")) +
+
+        step(4, "讓它停久一點",
+             '<p>下面加一塊 <b>「暫停 800 毫秒」</b>，給你時間反應。</p>'
+             + prog(blk("basic", "暫停 ", slot("800"), " 毫秒"))
+             + look("地鼠<b>停一下</b>才換位置，看得清楚了 👀")) +
+
+        step(5, "問問看你有沒有在按 A",
+             find("event", "按鈕 A 被按下？", "（圓圓的那塊，在<b>輸入</b>抽屜）")
+             + note("🤔 這塊跟帽子不一樣",
+                    "<b>「當按鈕 A 被按下」</b>是帽子，你一按它就跳出來做事。<br>"
+                    "<b>「按鈕 A 被按下？」</b>是<b>問句</b>，它只回答「現在有沒有在按」。")
+             + '<p>先拖到空白處放著，下一步要用。</p>'
+             + prog(blk("event", "按鈕 ", slot("A", True), " 被按下？"))
+             + look("認得這塊就打勾 ✅")
+             + adult("這是這個遊戲的重點：<b>事件</b>（等你按）和<b>詢問</b>（現在按著嗎）"
+                     "是兩種不同的做法。<br>"
+                     "打地鼠要在「地鼠出現的那段時間內」檢查，所以用問句比較順。")) +
+
+        step(6, "地鼠在左邊還是右邊？",
+             '<p>在「暫停」<b>上面</b>加一塊<b>有「否則」</b>的判斷，'
+             '條件是 <b>mx &lt; 2</b>（左半邊）。</p>'
+             + prog(ifelse(slot("mx") + ' &lt; ' + slot("2"),
+                           '<div class="plainrow">地鼠在左邊 → 要按 A</div>',
+                           '<div class="plainrow">地鼠在右邊 → 要按 B</div>'))
+             + look("架子搭好了，還沒放東西。")) +
+
+        step(7, "按對了就加分",
+             '<p><b>那麼</b>（左邊）裡面放 <b>「如果 按鈕 A 被按下？ 那麼」</b> → '
+             '<code>score</code> 改變 1 ＋ 一個<b>高音</b>。</p>'
+             '<p><b>否則</b>（右邊）一樣，但改成 <b>按鈕 B 被按下？</b>。</p>'
+             + prog(ifelse(slot("mx") + ' &lt; ' + slot("2"),
+                           ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？"),
+                                  blk("var", "變數 ", slot("score"), " 改變 ", slot("1")) +
+                                  playtone("高音 C", "1/4 拍")),
+                           ifelse(blk("event", "按鈕 ", slot("B", True), " 被按下？"),
+                                  blk("var", "變數 ", slot("score"), " 改變 ", slot("1")) +
+                                  playtone("高音 C", "1/4 拍"))))
+             + note("👆 要<b>按著不放</b>",
+                    "地鼠出現的<b>那一瞬間</b>要正在按著，它才數得到。<br>"
+                    "所以玩的時候手指<b>壓著</b>比較好中。")
+             + look("<b>可以玩了！</b> 按對 → 「叮」🔨")) +
+
+        step(8, "看分數",
+             '<p>在「重複無限次」<b>最下面</b>加一塊 <b>「顯示數字 score」</b>，'
+             '再加 <b>「暫停 300 毫秒」</b>。</p>'
+             + prog(blk("basic", "顯示數字 ", slot("score")) +
+                    blk("basic", "暫停 ", slot("300"), " 毫秒"))
+             + look("每打完一隻，畫面會<b>閃一下分數</b> 🔢")
+             + adult("到這裡遊戲就完整了。後面的加料關可做可不做。")) +
+
+        stage("🍬", "加料關", "一關一個小點子，<b>做幾關都可以</b>。")
+
+        + step(9, "加料 ①：地鼠會閃，比較好認",
+               find("led", "點的狀態切換 x 0 y 0")
+               + '<p>用它做「亮 → 暗 → 亮」，地鼠就會<b>閃</b>。</p>'
+               '<p>在「點亮」下面放：<b>暫停 200</b>、<b>點的狀態切換 x mx y 2</b>、'
+               '<b>暫停 200</b>、再一塊<b>點的狀態切換</b>。</p>'
+               + prog(blk("led", "點亮 x ", slot("mx"), " y ", slot("2")) +
+                      blk("basic", "暫停 ", slot("200"), " 毫秒") +
+                      blk("led", "點的狀態切換 x ", slot("mx"), " y ", slot("2")) +
+                      blk("basic", "暫停 ", slot("200"), " 毫秒") +
+                      blk("led", "點的狀態切換 x ", slot("mx"), " y ", slot("2")))
+               + look("地鼠會<b>一閃一閃</b> ✨")
+               + '<p class="usedhint">這一關多用到：<b>點的狀態切換 x y</b></p>') +
+
+        step(10, "加料 ②：打完就把它熄掉",
+             find("led", "不點亮 x 0 y 0")
+             + '<p>在「按對了加分」的裡面，加一塊 <b>「不點亮 x mx y 2」</b>。</p>'
+             + prog(blk("led", "不點亮 x ", slot("mx"), " y ", slot("2")))
+             + look("打中的<b>那一瞬間</b>地鼠就消失了，手感好很多 🔨")
+             + '<p class="usedhint">這一關多用到：<b>不點亮 x y</b></p>') +
+
+        step(11, "加料 ③：沒按到就「嗚」一聲",
+             '<p>給「如果 按鈕 A 被按下？」加上 <b>否則</b>，裡面放一個<b>低音</b>。</p>'
+             '<p>再放一塊 <b>「rest for 1/4 拍」</b>（音效抽屜），讓聲音之間有空隙。</p>'
+             + prog(ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？"),
+                           blk("var", "變數 ", slot("score"), " 改變 ", slot("1")),
+                           playtone("低音 C", "1/4 拍") +
+                           blk("music", "rest for ", slot("1/4 拍"))))
+             + look("沒打到會「嗚」一聲，知道自己漏掉了 😵")
+             + '<p class="usedhint">這一關多用到：<b>rest for</b></p>') +
+
+        step(12, "加料 ④：兩顆都沒按才算漏",
+             '<p>用 <b>「或」</b>（邏輯抽屜）把兩個問句串起來：</p>'
+             '<p><b>「如果 (按鈕 A 被按下？ 或 按鈕 B 被按下？) 那麼」</b> → '
+             '表示「你有在按其中一顆」。</p>'
+             + prog(ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？") + ' 或 ' +
+                           blk("event", "按鈕 ", slot("B", True), " 被按下？"),
+                           '<div class="plainrow">你有按（不管哪一顆）</div>'))
+             + tip("🔀 「或」是什麼", "<b>兩邊只要有一邊成立</b>，整句就成立。")
+             + look("看得懂就打勾 ✅")
+             + '<p class="usedhint">這一關多用到：<b>或</b></p>') +
+
+        step(13, "加料 ⑤：換一種迴圈寫法",
+             find("loop", "重複 判斷 false 執行")
+             + '<p>把 <b>false</b> 換成 <b>true</b>（邏輯抽屜那塊）。</p>'
+             + note("😲 這樣就跟「重複無限次」一樣了",
+                    "<b>「重複 判斷 true 執行」</b>＝ 只要條件成立就一直做，"
+                    "而 <code>true</code> 永遠成立，所以它<b>永遠不會停</b>。")
+             + prog(blk("loop", "重複 判斷 ", slot("true"), " 執行", hat=True,
+                        nest_html='<div class="plainrow">跟「重複無限次」做一樣的事</div>'))
+             + look("看得懂就打勾 ✅（不用真的換掉，知道有這種寫法就好）")
+             + adult("之後要做「命還沒用完就一直玩」這種條件迴圈，用的就是這塊。"
+                     "第三個遊戲「躲石頭」會真的派上用場。")
+             + '<p class="usedhint">這一關多用到：<b>重複 判斷 執行</b>、<b>true</b></p>') +
+
+        step(14, "加料 ⑥：碰金色的孔加分",
+             find("event", "當引腳 P0 被按下", "（<b>輸入</b>抽屜）")
+             + '<p>拉出來，裡面放 <b>「變數 score 改變 5」</b>。</p>'
+             '<p>手捏著 <b>GND</b>，另一手碰 <b>P0</b> → 偷偷加 5 分 😈</p>'
+             + prog(blk("event", "當引腳 ", slot("P0", True), " 被按下", hat=True,
+                        nest_html=blk("var", "變數 ", slot("score"), " 改變 ", slot("5"))))
+             + look("碰一下金色的孔 → 分數<b>跳 5 分</b> 🪙")
+             + '<p class="usedhint">這一關多用到：<b>當引腳 P0 被按下</b></p>') +
+
+        step(15, "加料 ⑦：按著金色孔才算數",
+             find("event", "引腳 P0 被按下？", "（圓圓的問句）")
+             + '<p>跟「按鈕 A 被按下？」一樣是<b>問句</b>。</p>'
+             '<p>試試看：<b>「如果 引腳 P0 被按下？ 那麼」</b> → '
+             '用 <b>加法</b> 把分數變兩倍：<code>score</code> 設為 <b>score + score</b>。</p>'
+             + prog(ifelse(blk("event", "引腳 ", slot("P0", True), " 被按下？"),
+                           blk("var", "變數 ", slot("score"), " 設為 ",
+                               blk("math", slot("score"), " + ", slot("score")))))
+             + look("按著金孔的時候，分數會<b>翻倍</b> 💰")
+             + '<p class="usedhint">這一關多用到：<b>引腳 P0 被按下？</b>、<b>加法</b></p>') +
+
+        step(16, "加料 ⑧：把燈調暗一點",
+             find("led", "燈光 亮度設為 255")
+             + '<p>放進 <b>「當啟動時」</b>，數字改成 <code>80</code>。</p>'
+             + prog(blk("led", "燈光 亮度設為 ", slot("80")))
+             + look("整片燈變<b>柔和</b>了，晚上玩不刺眼 🌙")
+             + '<p class="usedhint">這一關多用到：<b>燈光 亮度設為</b></p>') +
+
+        tryit("把 <code>800</code> 改小，地鼠換得更快、更難打。",
+              "改成<b>三個區域</b>：左邊按 A、右邊按 B、正中間<b>兩顆一起按</b>。") +
+
+        uses_section("g2") +
+
+        final("g2", [
+            "我做出了打地鼠，按對會加分",
+            "我分得出「當按鈕被按下」（帽子）和「按鈕被按下？」（問句）",
+            "我知道「重複 判斷 true 執行」跟「重複無限次」是一樣的意思",
+        ]) + game_nav("g2")
+    )
+    write_game("g2", body, "101 遊戲：打地鼠")
+
+# ---- 🪨 躲石頭 ----
+def build_g3():
+    body = (
+        game_top("g3", "101 遊戲 · 第三個", "🪨 躲石頭") +
+        goal("🪨", "石頭一直掉下來，左右<b>閃開</b>。活越久，分越高。") +
+
+        '<p>這個遊戲用一招<b>新的</b>：不用比座標，直接問 micro:bit——</p>'
+        '<p>「<b>我站的那一格，燈是不是亮著？</b>」亮著就代表<b>撞到</b>了 💥</p>'
+
+        + stage("🎮", "基本關", "做完這 9 步，遊戲就<b>可以玩了</b>。")
+
+        + step(1, "做四個盒子",
+               '<p>建立：<code>px</code>（你在哪）、<code>rx</code>（石頭在哪）、'
+               '<code>ry</code>（石頭掉到第幾排）、<code>score</code>（分數）。</p>'
+               '<p>在 <b>「當啟動時」</b> 裡：<code>px</code> 設 <code>2</code>、'
+               '<code>ry</code> 設 <code>0</code>、<code>score</code> 設 <code>0</code>，'
+               '<code>rx</code> 設 <b>隨機取數 0 到 4</b>。</p>'
+               + look("畫面沒變化，是正常的 👍")) +
+
+        step(2, "用「重複 判斷」當主迴圈",
+             find("loop", "重複 判斷 false 執行")
+             + '<p>把 <b>false</b> 換成一個判斷：<b>score &lt; 999</b>。</p>'
+             + note("🤔 為什麼不用「重複無限次」",
+                    "因為等一下<b>撞到石頭時要讓它停下來</b>。<br>"
+                    "只要把 <code>score</code> 設成 <code>999</code>，這個迴圈就會自己結束。")
+             + prog(blk("loop", "重複 判斷 ", slot("score") + ' &lt; ' + slot("999"),
+                        " 執行", hat=True))
+             + look("架子搭好了，裡面還空空的。")
+             + adult("這是「用一個變數當開關」的入門。<br>"
+                     "比起「重複無限次 ＋ 一個 playing 旗標」，"
+                     "直接把條件寫在迴圈上，孩子比較看得出「什麼時候會停」。")) +
+
+        step(3, "把石頭畫出來、讓它掉",
+             '<p>迴圈裡放：<b>清空畫面</b> → <b>點亮 x rx y ry</b> → '
+             '<b>暫停 400 毫秒</b> → <b>ry 改變 1</b>。</p>'
+             + prog(blk("loop", "重複 判斷 ", slot("score") + ' &lt; ' + slot("999"),
+                        " 執行", hat=True,
+                        nest_html=blk("basic", "清空畫面") +
+                                  blk("led", "點亮 x ", slot("rx"), " y ", slot("ry")) +
+                                  blk("basic", "暫停 ", slot("400"), " 毫秒") +
+                                  blk("var", "變數 ", slot("ry"), " 改變 ", slot("1"))))
+             + look("一顆石頭從上面<b>掉下來</b> 🪨 掉出去就不見了。")) +
+
+        step(4, "石頭掉完就換一顆新的",
+             '<p>加一塊 <b>「如果 ry &gt; 4 那麼」</b>：</p>'
+             '<p>裡面 <code>ry</code> 設 <code>0</code>、'
+             '<code>rx</code> 設 <b>隨機取數 0 到 4</b>、<code>score</code> 改變 <code>1</code>。</p>'
+             + prog(ifelse(slot("ry") + ' &gt; ' + slot("4"),
+                           blk("var", "變數 ", slot("ry"), " 設為 ", slot("0")) +
+                           blk("var", "變數 ", slot("rx"), " 設為 ",
+                               blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4"))) +
+                           blk("var", "變數 ", slot("score"), " 改變 ", slot("1"))))
+             + look("石頭一顆接一顆<b>不停</b>掉下來 🪨🪨🪨")) +
+
+        step(5, "把你自己畫出來",
+             '<p>在「點亮石頭」的<b>下面</b>加 <b>「點亮 x px y 4」</b>。</p>'
+             + prog(blk("led", "點亮 x ", slot("px"), " y ", slot("4")))
+             + look("最下面多了一顆燈，那是<b>你</b> 🔆")) +
+
+        step(6, "A 往左、B 往右",
+             '<p>跟接星星一樣，做兩頂帽子改 <code>px</code>。</p>'
+             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
+                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("-1"))) +
+                    blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
+                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("1"))))
+             + look("你可以左右移動了 ⬅️➡️")) +
+
+        step(7, "新招：問它「我這格亮著嗎」",
+             find("led", "點的狀態 x 0 y 0", "（圓圓的<b>問句</b>）")
+             + note("💥 這就是撞到判定",
+                    "石頭先畫、你後畫。<br>"
+                    "如果<b>畫你之前</b>那一格<b>已經亮著</b>，就表示石頭在你身上——撞到了。")
+             + '<p>先拖到空白處，下一步要用。</p>'
+             + prog(blk("led", "點的狀態 x ", slot("px"), " y ", slot("4")))
+             + look("認得這塊就打勾 ✅")) +
+
+        step(8, "撞到就停下來",
+             '<p>把它放在 <b>「點亮 x px y 4」的上面</b>，配一塊 <b>「如果…那麼」</b>：</p>'
+             + prog(ifelse(blk("led", "點的狀態 x ", slot("px"), " y ", slot("4")),
+                           blk("basic", "顯示圖示 ", slot("😢")) +
+                           blk("var", "變數 ", slot("score"), " 設為 ", slot("999"))))
+             + note("⚠️ 順序很重要",
+                    "一定要放在<b>「點亮 x px y 4」的上面</b>。<br>"
+                    "先問「亮著嗎」，才輪到你把自己畫上去，不然永遠都是亮的。")
+             + look("撞到石頭 → 哭臉 😢 遊戲<b>停住</b>了。")
+             + adult("這一步最容易錯位。孩子把判斷放到「點亮自己」下面的話，"
+                     "遊戲會<b>一開始就結束</b>——因為他自己把那格點亮了。<br>"
+                     "看到一開機就哭臉，就是這個原因。")) +
+
+        step(9, "撞到之前活了幾秒？",
+             '<p>在「如果撞到」裡，<b>哭臉的上面</b>先放一塊 <b>「顯示數字 score」</b>。</p>'
+             + note("💡 用 999 當結束訊號的副作用",
+                    "<code>score</code> 被設成 <code>999</code> 之後就不是分數了。<br>"
+                    "所以要<b>先秀出來</b>，再設 999。")
+             + prog(ifelse(blk("led", "點的狀態 x ", slot("px"), " y ", slot("4")),
+                           blk("basic", "顯示數字 ", slot("score")) +
+                           blk("basic", "顯示圖示 ", slot("😢")) +
+                           blk("var", "變數 ", slot("score"), " 設為 ", slot("999"))))
+             + look("<b>可以玩了！</b> 撞到 → 先看到分數，再看到哭臉 😢")) +
+
+        stage("🍬", "加料關", "一關一個小點子，<b>做幾關都可以</b>。")
+
+        + step(10, "加料 ①：撞到的時候長長「嗚——」一聲",
+               find("music", "演奏 音階 中音 C", "（<b>短的</b>那塊，中文的）")
+               + note("🔊 這次故意用它",
+                      "第 8 課說過這塊<b>聲音不會停</b>。<br>"
+                      "這裡剛好利用這一點——撞到就一直叫，直到你叫它停。")
+               + '<p>音改成 <b>低音 C</b>，放在哭臉<b>前面</b>。</p>'
+               + prog(blk("music", "演奏 音階 ", slot("低音 C")))
+               + look("撞到 → <b>一直「嗚——」</b>不停 😱 下一關來關掉它。")
+               + '<p class="usedhint">這一關多用到：<b>演奏 音階</b></p>') +
+
+        step(11, "加料 ②：兩秒後讓它閉嘴",
+             find("music", "停止播放所有音效")
+             + '<p>在「演奏 音階」後面放 <b>「暫停 2000 毫秒」</b>，再放這一塊。</p>'
+             + prog(blk("music", "演奏 音階 ", slot("低音 C")) +
+                    blk("basic", "暫停 ", slot("2000"), " 毫秒") +
+                    blk("music", "停止播放所有音效"))
+             + look("「嗚——」響兩秒就<b>安靜</b>了 🤫")
+             + '<p class="usedhint">這一關多用到：<b>停止播放所有音效</b></p>') +
+
+        step(12, "加料 ③：兩顆石頭一起掉",
+             '<p>再做兩個盒子 <code>rx2</code>、<code>ry2</code>，'
+             '照第 3、4 步再來一次。</p>'
+             '<p>撞到判定不用改——<b>點的狀態</b>本來就不管是哪一顆石頭 😎</p>'
+             + prog(blk("led", "點亮 x ", slot("rx"), " y ", slot("ry")) +
+                    blk("led", "點亮 x ", slot("rx2"), " y ", slot("ry2")))
+             + look("<b>兩顆</b>石頭一起掉，難度直接翻倍 🪨🪨")
+             + adult("這一關是在讓他體會「用燈的狀態判定碰撞」的好處："
+                     "石頭再多，判斷都只有一塊積木。<br>"
+                     "如果是比座標的寫法，每多一顆石頭就要多一組條件。")) +
+
+        step(13, "加料 ④：越熱掉越快",
+             find("event", "溫度感測值 (°C)")
+             + '<p>把 <b>「暫停 400」</b> 的數字換成 <b>400 - 溫度感測值 × 5</b>。</p>'
+             + prog(blk("basic", "暫停 ",
+                        blk("math", slot("400"), " - ",
+                            blk("math", blk("event", "溫度感測值 (°C)"), " × ", slot("5"))),
+                        " 毫秒"))
+             + look("<b>手握住板子</b>暖一下 → 石頭掉得更快 🔥")
+             + adult("室溫大概 25 度，所以暫停約 275 毫秒。手握住會升到 30 度以上，"
+                     "掉得明顯更快。這是把感測器接上遊戲難度的第一步。")
+             + '<p class="usedhint">這一關多用到：<b>溫度感測值</b></p>') +
+
+        step(14, "加料 ⑤：兩台連線，比誰活得久（先講暗號）",
+             find("radio", "廣播群組設為 1")
+             + '<p>放進 <b>「當啟動時」</b>，數字保持 <code>1</code>。</p>'
+             + prog(blk("radio", "廣播群組設為 ", slot("1")))
+             + look("畫面上出現<b>兩台</b>假的 micro:bit 了！")
+             + '<p class="usedhint">這一關多用到：<b>廣播群組設為</b></p>') +
+
+        step(15, "加料 ⑥：死掉就把分數喊出去",
+             find("radio", "廣播發送數字 0")
+             + '<p>放在「如果撞到」裡面，數字框塞圓圓的 <code>score</code>。</p>'
+             + note("⏰ 要放在設成 999 <b>之前</b>", "不然傳出去的會是 999。")
+             + prog(blk("radio", "廣播發送數字 ", slot("score")))
+             + look("其中一台撞到 → 另一台<b>收到</b>了（下一關才看得到）📡")
+             + '<p class="usedhint">這一關多用到：<b>廣播發送數字</b></p>') +
+
+        step(16, "加料 ⑦：收到對手的分數就比一比",
+             find("radio", "當收到廣播數字 receivedNumber", "（一頂<b>帽子</b>）")
+             + '<p>裡面放 <b>「如果 score &gt; receivedNumber 那麼」</b> → '
+             '<b>顯示文字 WIN</b>，<b>否則</b> → <b>顯示文字 LOSE</b>。</p>'
+             + prog(blk("radio", "當收到廣播數字 ", slot("receivedNumber", True), hat=True,
+                        nest_html=ifelse(slot("score") + ' &gt; ' + slot("receivedNumber"),
+                                         blk("basic", "顯示文字 ", slot("WIN")),
+                                         blk("basic", "顯示文字 ", slot("LOSE")))))
+             + look("兩台比分數，贏的那台跑出 <b>WIN</b> 🏆")
+             + '<p class="usedhint">這一關多用到：<b>當收到廣播數字</b></p>') +
+
+        step(17, "加料 ⑧：用文字喊話",
+             find("radio", "廣播發送文字")
+             + '<p>撞到的時候，除了送分數，再送一句 <code>DEAD</code>。</p>'
+             + prog(blk("radio", "廣播發送文字 ", slot("DEAD")))
+             + look("送出去了，但還沒人在聽。下一關 👇")
+             + '<p class="usedhint">這一關多用到：<b>廣播發送文字</b></p>') +
+
+        step(18, "加料 ⑨：聽到對手掛了就慶祝",
+             find("radio", "當收到廣播文字 receivedString", "（一頂<b>帽子</b>）")
+             + '<p>裡面放 <b>「重複 3 次 執行」</b>，'
+             '裡面放<b>笑臉</b>、<b>暫停 200</b>、<b>清空畫面</b>、<b>暫停 200</b>。</p>'
+             + prog(blk("radio", "當收到廣播文字 ", slot("receivedString", True), hat=True,
+                        nest_html=blk("loop", "重複 ", slot("3"), " 次 執行",
+                                      nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
+                                                blk("basic", "暫停 ", slot("200"), " 毫秒") +
+                                                blk("basic", "清空畫面") +
+                                                blk("basic", "暫停 ", slot("200"), " 毫秒"))))
+             + look("對手一撞到，你這台就<b>笑臉閃三下</b> 😀🎉")
+             + '<p class="usedhint">這一關多用到：<b>當收到廣播文字</b>、<b>重複 N 次 執行</b></p>') +
+
+        step(19, "加料 ⑩：石頭剛好砸在你頭上才算",
+             '<p>用 <b>「且」</b>（邏輯抽屜）寫另一種撞到判定：</p>'
+             '<p><b>「如果 (ry = 4 且 rx = px) 那麼」</b> → 撞到。</p>'
+             + prog(ifelse(slot("ry") + ' = ' + slot("4") + ' 且 ' +
+                           slot("rx") + ' = ' + slot("px"),
+                           blk("basic", "顯示圖示 ", slot("😢"))))
+             + tip("🔗 「且」是什麼", "<b>兩邊都要成立</b>，整句才成立。")
+             + look("看得懂就打勾 ✅")
+             + adult("這是跟第 7 步「點的狀態」<b>完全不同</b>的解法，結果一樣。<br>"
+                     "值得問他：「兩顆石頭的時候，哪一種寫起來比較短？」"
+                     "答案是「點的狀態」——這就是選對工具的價值。")
+             + '<p class="usedhint">這一關多用到：<b>且</b></p>') +
+
+        tryit("把石頭改成<b>三顆</b>。",
+              "讓石頭<b>每掉一顆就加快一點</b>（用第一個遊戲的算式）。") +
+
+        uses_section("g3") +
+
+        final("g3", [
+            "我會用「點的狀態」問某一格燈亮不亮，拿來判斷撞到",
+            "我知道「重複 判斷 執行」可以自己停下來",
+            "我讓兩台 micro:bit 比了分數",
+        ]) +
+
+        '<div class="goal win final-win"><div class="big">🏆</div><div>'
+        '<h3>三個遊戲都做完了，你會做遊戲了！</h3>'
+        '<p>接星星、打地鼠、躲石頭——三種完全不一樣的玩法，'
+        '你都用同一盒積木拼出來了。<br>'
+        '接下來最好玩的是：<b>想一個沒有人做過的遊戲</b>，然後把它拼出來 🌟</p></div></div>'
+
+        + game_nav("g3")
+    )
+    write_game("g3", body, "101 遊戲：躲石頭")
+
 def main():
+    # 先檢查遊戲宣告的 uses 都對得上 BLOCKS，對不上就直接失敗，
+    # 免得教材寫「用了某塊」但實際沒有那塊積木。
+    ids = {b["id"] for b in BLOCKS}
+    for g in GAMES:
+        bad = [u for u in g["uses"] if u not in ids]
+        assert not bad, f"{g['id']} 的 uses 有不存在的積木 id：{bad}"
     build_index()
-    build_101()
+    build_blocks()
+    build_games_hub()
+    build_g1(); build_g2(); build_g3()
     build_l0(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6()
     build_l7(); build_l8(); build_l9(); build_l10(); build_l11(); build_l12()
     opened = [L['id'] for L in LESSONS if L['status'] == 'open']
-    print("已生成：index.html, 101.html, " + ", ".join(f"{i}.html" for i in opened))
+    print("已生成：index.html, blocks.html, 101.html, g1/g2/g3.html, "
+          + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程（{len(opened)}）：{opened}")
     per = {c: sum(1 for b in BLOCKS if b['cat'] == c) for c in DEX_CATS}
     print(f"積木圖鑑（{len(BLOCKS)} 塊）：" + "、".join(f"{DRAWER[c][0]} {n}" for c, n in per.items()))
+    cov = covered_ids()
+    miss = [b["id"] for b in BLOCKS if b["id"] not in cov]
+    print(f"遊戲積木涵蓋率：{len(cov)} / {len(BLOCKS)}"
+          + ("（未使用：" + "、".join(miss) + "）" if miss else "（全數用到）"))
+    for g in GAMES:
+        print(f"  {g['id']} {g['title']}：{len(set(g['uses']))} 塊")
 
 if __name__ == "__main__":
     main()

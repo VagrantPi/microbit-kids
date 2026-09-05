@@ -351,3 +351,48 @@ html[data-theme=dark] .qopt.wrong{background:#4a2020;border-color:#8a4040}
 /* 頂列在窄螢幕會被 ☰ / 🎯 / 🌙 三顆按鈕擠到換行，把站名縮成只剩 micro:bit 徽章 */
 .bar .brand{white-space:nowrap}
 @media(max-width:560px){ .bar .brand .wm{display:none} }
+
+/* ================= 101 遊戲區 ================= */
+.bigcard.game{background:linear-gradient(120deg,#e8f0ff,#f0e6ff);border-color:#a9c2f5}
+html[data-theme=dark] .bigcard.game{background:linear-gradient(120deg,#1e2748,#2b1f45);border-color:#3f4f86}
+
+/* 三張遊戲卡 */
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:13px;margin:14px 0}
+.gcard{position:relative;display:block;text-decoration:none;color:inherit;background:var(--card);
+  border:3px solid var(--line);border-radius:20px;padding:17px 16px 15px;
+  box-shadow:var(--shadow);transition:.15s}
+.gcard:hover{transform:translateY(-3px);border-color:var(--brand)}
+.gcard .em{font-size:40px;line-height:1;display:block}
+.gcard h3{margin:7px 0 3px;font-size:21px;color:var(--accent)}
+.gcard p{margin:0 0 9px;color:var(--ink2);font-size:15px;line-height:1.6}
+.gcard .n{display:inline-block;background:var(--bg2);border-radius:999px;
+  padding:3px 11px;font-size:13px;font-weight:800;color:var(--ink2)}
+html[data-theme=dark] .gcard .n{background:#2f2752}
+
+/* 基本關／加料關 的分隔標題 */
+.stage{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:26px 0 6px;
+  background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff;
+  border-radius:16px;padding:12px 16px}
+.stage .em{font-size:26px;line-height:1}
+.stage .t{font-weight:800;font-size:20px}
+.stage .d{flex:1 1 100%;font-size:15px;opacity:.95;line-height:1.6}
+
+/* 加料關裡的「這一關多用到」 */
+.usedhint{margin:10px 0 0;background:var(--bg2);border-radius:11px;padding:7px 12px;
+  font-size:14.5px;color:var(--ink2)}
+html[data-theme=dark] .usedhint{background:#2f2752}
+
+/* 遊戲用到的積木清單 */
+.uses{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:12px 0}
+.ucard{background:var(--card);border:3px solid var(--line);border-radius:16px;padding:11px 13px 9px}
+.ucard .block{margin:0 0 6px;font-size:14.5px}
+.ucard p{margin:0;color:var(--ink2);font-size:14px;line-height:1.55}
+
+/* 側邊欄：圖鑑／遊戲區兩列，只有最後一列畫分隔線 */
+.lrow.tool{border-bottom:0;margin-bottom:0;padding-bottom:9px}
+.lrow.tool.last{border-bottom:2px dashed var(--line);margin-bottom:5px}
+
+@media (max-width:560px){
+  .gcards{grid-template-columns:1fr}
+  .uses{grid-template-columns:1fr}
+}
