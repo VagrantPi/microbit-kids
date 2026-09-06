@@ -5,7 +5,7 @@
 積木文字全部對齊 makecode.microbit.org 繁體中文版的實際畫面（實測 v9.0.12）。
 要改積木文字前，請先去真的編輯器確認一次，不要憑印象寫。
 """
-import os, html
+import os, re, html
 REPO = os.path.dirname(os.path.abspath(__file__))
 
 # ===== 課程大綱（單一來源，側邊欄與首頁都從這裡長出來）=====
@@ -126,12 +126,96 @@ def ifelse(cond_html, then_html, else_html=None):
 # ---- 教學版面元件 ----
 def dot(cat): return f'<span class="dot b-{cat}"></span>'
 
-def find(cat, block_name, note=""):
-    """『去哪找』：色點 ＋ 抽屜名 ＋ 顏色 ＋ 積木名。"""
+# ---- 抽屜實測資料：makecode-drawers.txt ----
+# 學生反應「有些積木找不到」，查出原因有二：一是抽屜標錯（燈光亮度設為其實在「更多」），
+# 二是有些積木埋在長抽屜的中後段，不捲根本看不到。
+# 這裡把實測結果讀進來，讓 find() 在 build 時自我檢查，並自動補上位置提示。
+_DRAWER_IDX = {"basic": 0, "event": 1, "music": 3, "led": 4,
+               "radio": 6, "loop": 8, "logic": 9, "math": 11}
+_MORE_IDX = {"event": 2, "led": 5, "radio": 7}   # 各抽屜底下的「更多」
+
+def _load_drawers():
+    data, cur = {}, None
+    path = os.path.join(REPO, "makecode-drawers.txt")
+    for line in open(path, encoding="utf-8"):
+        line = line.rstrip("\n")
+        if line.startswith("#") or not line.strip():
+            continue
+        if line.startswith("@@@"):
+            cur = int(line.split(" ", 2)[1]); data.setdefault(cur, [])
+        elif cur is not None:
+            data[cur].append(re.sub(r"[\s…‏]+", "", line.replace("~", "")))
+    return data
+
+DRAWERS = _load_drawers()
+
+def _keywords(text):
+    """把積木名拆成關鍵字，丟掉數字、符號和佔位用的 …"""
+    out = []
+    for w in re.split(r"[\s()（）]+", text):
+        w = re.sub(r"[\s…‏]+", "", w)
+        if w and not re.fullmatch(r"[-\d./×+=<>?？\"\'…]+", w):
+            out.append(w)
+    return out
+
+def _in_drawer(text, idx):
+    kw = _keywords(text)
+    if not kw:
+        return True          # 純符號（例如「<」）無法比對，放行
+    return any(all(k in row for k in kw) for row in DRAWERS.get(idx, []))
+
+# 埋得深、孩子容易翻不到的積木，統一在這裡補位置提示。
+# key 是 (抽屜, 積木名開頭)，find() 會自動配對，不用每個呼叫點各寫一次。
+FIND_HINT = {
+    ("math", "隨機取數"):   "要<b>往下捲</b>，大概在第 12 塊",
+    ("music", "停止播放"):  "要<b>往下捲</b>，在「音量（Volume）」那一區",
+    ("music", "rest"):     "在「音高（Tone）」那一區",
+    ("music", "play tone"): "在「音高（Tone）」那一區",
+    ("music", "演奏 音階"):  "在「音高（Tone）」那一區",
+    ("logic", "且"):        "要<b>往下捲</b>，在「布林值（Boolean）」那一區",
+    ("logic", "或"):        "要<b>往下捲</b>，在「布林值（Boolean）」那一區",
+    ("logic", "true"):     "要<b>往下捲</b>，在「布林值（Boolean）」那一區",
+    ("logic", "="):        "在「比較（Comparison）」那一區",
+    ("logic", "<"):        "在「比較（Comparison）」那一區",
+    ("event", "溫度感測值"): "要<b>往下捲</b>，大概在第 9 塊",
+    ("event", "光線感測值"): "要<b>往下捲</b>，大概在第 7 塊",
+    ("radio", "廣播群組設為"): "在「Group」那一區（最上面）",
+    ("radio", "廣播發送"):   "在「Send」那一區",
+    ("radio", "當收到廣播"):  "在「Receive」那一區",
+}
+
+def _hint_for(cat, block_name):
+    for (c, prefix), hint in FIND_HINT.items():
+        if c == cat and block_name.startswith(prefix):
+            return hint
+    return ""
+
+def find(cat, block_name, note="", more=False):
+    """『去哪找』：色點 ＋ 抽屜名 ＋ 顏色 ＋ 積木名。
+
+    more=True 表示這塊在該抽屜底下的「更多」子抽屜裡（不點開根本看不到）。
+    build 時會拿 makecode-drawers.txt 驗證，指錯抽屜直接讓 build 失敗。
+    """
     name, color = DRAWER[cat]
+    # 變數抽屜要「建立一個變數…」之後才長出積木，所以沒有固定內容可以比對，跳過檢查。
+    if cat in _DRAWER_IDX:
+        idx = _MORE_IDX[cat] if more else _DRAWER_IDX[cat]
+        assert _in_drawer(block_name, idx), (
+            f"積木「{block_name}」不在{'「' + name + '→更多」' if more else name}抽屜裡。"
+            f"請對照 makecode-drawers.txt 修正，或加上 more=True。")
+
     extra = f' <span class="fnote">{note}</span>' if note else ''
-    return (f'<div class="find">{dot(cat)}去 <b>{esc(name)}</b> 抽屜（{esc(color)}的），'
-            f'找 <b class="bname">{esc(block_name)}</b>{extra}</div>')
+    hint = _hint_for(cat, block_name)
+    hint_html = f'<div class="fhint">🔎 {hint}</div>' if hint else ''
+    if more:
+        where = (f'去 <b>{esc(name)}</b> 抽屜（{esc(color)}的），'
+                 f'再點它下面的 <b class="bname">更多</b>')
+        hint_html = ('<div class="fhint">🔎 這塊<b>不在</b> ' + esc(name) +
+                     ' 抽屜的第一層，要先點<b>更多</b>才看得到</div>')
+    else:
+        where = f'去 <b>{esc(name)}</b> 抽屜（{esc(color)}的）'
+    return (f'<div class="find">{dot(cat)}{where}，'
+            f'找 <b class="bname">{esc(block_name)}</b>{extra}</div>' + hint_html)
 
 def look(text): return f'<div class="look"><b>👀 看一下</b>{text}</div>'
 
@@ -236,8 +320,9 @@ def write(lid, body, title):
 #              ("n",cat,[...])＝積木裡面還卡著一塊小積木。
 # 積木上的字一律照螢幕，desc（一句話）才用孩子聽得懂的講法。
 # id 是給遊戲頁宣告「我用到哪幾塊」用的，改動要同步 GAMES 的 uses（build 時會檢查）。
-def B(bid, cat, parts, desc, hat=False):
-    return dict(id=bid, cat=cat, parts=parts, desc=desc, hat=hat)
+def B(bid, cat, parts, desc, hat=False, more=False):
+    """more=True：這塊在該抽屜底下的「更多」子抽屜裡，圖鑑會標出來。"""
+    return dict(id=bid, cat=cat, parts=parts, desc=desc, hat=hat, more=more)
 
 def render_parts(parts):
     out = []
@@ -286,7 +371,8 @@ BLOCKS = [
     B("led.unplot", "led", ["不點亮 x ", ("s", "0"), " y ", ("s", "0")], "指定一顆燈熄掉"),
     B("led.toggle", "led", ["點的狀態切換 x ", ("s", "0"), " y ", ("s", "0")], "亮的變暗、暗的變亮"),
     B("led.point", "led", ["點的狀態 x ", ("s", "0"), " y ", ("s", "0")], "回答「那顆燈現在亮不亮」"),
-    B("led.brightness", "led", ["燈光 亮度設為 ", ("s", "255")], "整片燈調亮或調暗"),
+    B("led.brightness", "led", ["燈光 亮度設為 ", ("s", "255")], "整片燈調亮或調暗",
+      more=True),   # 實測：在 LED 底下的「更多」裡，不在第一層
     # ---- 廣播（粉紅色）----
     B("radio.setGroup", "radio", ["廣播群組設為 ", ("s", "1")], "跟朋友約好同一個暗號"),
     B("radio.sendNumber", "radio", ["廣播發送數字 ", ("s", "0")], "隔空喊一個數字出去"),
@@ -332,11 +418,13 @@ def build_blocks():
                     f'<span>{esc(name)}</span><span class="cnt">{len(items)}</span></button>')
         cards = []
         for i, b in items:
+            more_tag = ('<span class="moretag">📂 在「更多」裡</span>'
+                        if b.get("more") else '')
             cards.append(
                 f'<div class="dexcard" data-i="{i}" data-cat="{c}">'
                 f'<span class="box"></span>'
                 f'<div class="bwrap">{render_block(b)}</div>'
-                f'<p class="d">{esc(b["desc"])}</p>'
+                f'<p class="d">{esc(b["desc"])}</p>{more_tag}'
                 f'<span class="medal">🏅</span></div>')
         panels.append(f'<div class="dexpanel{cur}" data-cat="{c}">' + "".join(cards) + '</div>')
 
@@ -1132,14 +1220,19 @@ def build_l8():
 
         step(2, "找出會發出聲音的積木",
              '<p>去 <b>音效</b> 抽屜（紅色的）。</p>'
+             + note("🔎 抽屜裡有<b>分區</b>，看標題找",
+                    "最上面那區是「<b>旋律（Melody）</b>」——<b>不是</b>我們要的。<br>"
+                    "往下一點點，第二區叫「<b>音高（Tone）</b>」，"
+                    "我們要的是那一區的<b>第一塊</b>。")
              + note("⚠️ 這塊積木上面是<b>英文字</b>",
-                    "它長這樣，<b>不用看懂</b>，找<b>最長的那一塊</b>就對了：")
+                    "不用看懂，認得上面有 <b>中音 C</b> 就對了：")
              + prog(playtone())
-             + note("🚫 別拿錯成這一塊",
-                    "旁邊有一塊比較短、寫中文的「演奏音階」。<br>"
-                    "那塊的聲音<b>不會停</b>，會一直叫。")
+             + note("🚫 別拿錯成這兩塊",
+                    "① 旋律區那塊<b>也很長</b>，但上面寫的是 <b>melody</b>，不是我們要的。<br>"
+                    "② 下面那塊比較短、寫中文的「演奏 音階」，"
+                    "聲音<b>不會停</b>，會一直叫。")
              + prog(blk("music", "演奏 音階 ", slot("中音 C")))
-             + look("找到最長的那塊就打勾 ✅")
+             + look("找到「音高（Tone）」區的第一塊就打勾 ✅")
              + adult("MakeCode 上游改過這塊積木的英文原文，繁體中文翻譯因此失效，"
                      "編輯器只好顯示英文 <code>play tone … until done</code>，我們改不了。<br>"
                      "短的那塊中文「演奏音階」是 ringTone，播了不會自己停，"
@@ -1757,7 +1850,7 @@ def build_games_hub():
         + f'{GAMES[0]["em"]} {esc(GAMES[0]["title"])} →</a></div>'
     )
     open(os.path.join(REPO, "101.html"), "w").write(
-        page("101", body, "101 遊戲區：用積木做三個小遊戲", ' data-lesson="101"'))
+        page("101", body, f"101 遊戲區：用積木做 {len(GAMES)} 個小遊戲", ' data-lesson="101"'))
 
 # ---- ✌️ 猜拳機（入門：不用變數、不用座標、不用音名）----
 def build_e1():
@@ -2431,7 +2524,10 @@ def build_g2():
              + '<p class="usedhint">這一關多用到：<b>引腳 P0 被按下？</b>、<b>加法</b></p>') +
 
         step(16, "加料 ⑧：把燈調暗一點",
-             find("led", "燈光 亮度設為 255")
+             find("led", "燈光 亮度設為 255", more=True)
+             + note("📂 什麼是「更多」",
+                    "有些抽屜點開之後，<b>最下面</b>還有一個叫 <b>「更多」</b>的。<br>"
+                    "比較少用的積木都收在那裡，點一下就展開了。")
              + '<p>放進 <b>「當啟動時」</b>，數字改成 <code>80</code>。</p>'
              + prog(blk("led", "燈光 亮度設為 ", slot("80")))
              + look("整片燈變<b>柔和</b>了，晚上玩不刺眼 🌙")
@@ -2677,6 +2773,19 @@ def build_g3():
 def main():
     # 先檢查遊戲宣告的 uses 都對得上 BLOCKS，對不上就直接失敗，
     # 免得教材寫「用了某塊」但實際沒有那塊積木。
+    # 拿實測資料檢查圖鑑每一塊都真的在它宣稱的抽屜裡
+    for b in BLOCKS:
+        if b["cat"] not in _DRAWER_IDX:
+            continue
+        idx = _MORE_IDX[b["cat"]] if b.get("more") else _DRAWER_IDX[b["cat"]]
+        text = " ".join(p if isinstance(p, str) else
+                        (p[1] if p[0] in ("s", "r") else "") for p in b["parts"])
+        # 只用積木本身的固定文字比對，slot 裡放的是佔位範例（❤️、5×5 格子…）不算
+        fixed = " ".join(p for p in b["parts"] if isinstance(p, str))
+        assert _in_drawer(fixed, idx), (
+            f"圖鑑的「{b['id']}」({fixed.strip()}) 不在宣稱的抽屜裡，"
+            f"請對照 makecode-drawers.txt")
+
     ids = {b["id"] for b in BLOCKS}
     for g in GAMES:
         bad = [u for u in g["uses"] if u not in ids]

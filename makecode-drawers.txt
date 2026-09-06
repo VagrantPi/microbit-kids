@@ -1,0 +1,153 @@
+# MakeCode micro:bit 抽屜實測結果（繁體中文 zh-TW）
+# 抓取日期：2026-09-06　編輯器版本：v9.0.12
+# 用途：build.py 會拿這份資料檢查每一個 find() 和 BLOCKS 是否指對抽屜。
+#       積木文字是從 Blockly SVG 的 text 節點抓的，同一塊裡的字順序可能亂掉，
+#       所以比對時一律「正規化去空白後做子字串包含」，不比對順序。
+# 重抓方式見 README 或 memory: makecode-zhtw-block-labels
+# 格式：@@@ <抽屜index> <抽屜名>，其後每一行是一塊積木（~ 分隔同一塊的文字節點）
+@@@ 0 基本
+基本~
+0~顯示~數字
+顯示 指示燈~~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off~LED off
+顯示 圖示~
+"~Hello!~"~顯示~文字
+清空 畫面
+重複無限次
+當啟動時
+100~暫停~毫秒
+箭頭數字~北~顯示 箭頭
+@@@ 1 輸入
+輸入~
+當按鈕~A~被按下
+當姿勢~晃動~發生
+當引腳~P0~被按下
+按鈕~A~被按下？
+加速度感測值 (mg)~x
+引腳~P0~被按下？
+光線感測值
+方位感測值 (°)
+溫度感測值 (°C)
+姿勢為~晃動~？
+micro:bit (V2)
+大聲~音效
+在標誌~按住~上
+已按住標誌
+聲音響度
+@@@ 2 更多
+更多~
+電子羅盤校準
+磁力感測值 (µT)~x
+旋轉感測值 (°)~pitch
+運行時間 (ms)
+運行時間 (micros)
+當引腳~P0~被鬆開
+加速度計~範圍設為~1G~重力
+micro:bit (V2)
+128~將~大聲~聲響閾值設為
+@@@ 3 音效
+音效~
+旋律（Melody）
+~120~melody~at tempo~(bpm)~play~until done
+音高（Tone）
+中音 C~1~拍~tone~for~play~until done
+中音 C~演奏 音階
+1~拍~rest for
+中音 C
+音量（Volume）
+127~音量設為
+音量
+停止播放所有音效
+演奏速度（Tempo）
+20~演奏 速度改變~bpm
+120~演奏 速度設為~bpm
+1~拍
+演奏速度 (bpm)
+Melody Advanced
+melody~dadadum~play~背景運行
+停止旋律~全部
+當音效~音階演奏~發生
+micro:bit (V2)
+咯咯笑~play~until done
+5000~0~255~0~500~~~~~~~~~~~play~until done
+5000~0~255~0~500~~~~~~~~~~
+sound is playing
+關~設定內建喇叭
+@@@ 4 LED
+LED~
+0~0~點亮~x~y
+0~0~點的狀態切換~x~y
+0~0~不點亮~x~y
+0~0~點的狀態~x~y
+0~0~開~plot bar graph of~up to~
+@@@ 5 更多
+更多~
+0~0~255~點亮~x~y~亮度
+0~0~point~x~y~brightness
+亮度
+255~燈光 亮度設為
+false~啟用設為
+停止動畫
+顯示模式設為~黑白
+@@@ 6 廣播
+廣播~
+Group
+1~廣播群組設為
+Send
+0~廣播 發送數字
+"~玩家的名稱（name）~"~0~廣播~發送鍵值~=
+"~~"~廣播 發送文字
+Receive
+receivedNumber~當收到廣播數字
+玩家的名稱（name）~值~當收到廣播鍵值
+receivedString~當收到廣播文字
+訊號強度~收到的封包
+@@@ 7 更多
+更多~
+7~廣播強度設為
+true~廣播序號設為
+0~radio set frequency band
+MICROBIT_ID_BUTTON_A~MICROBIT_EVT_ANY~廣播引發事件~來源為~值為 value
+@@@ 8 迴圈
+迴圈~
+4~重複~次~執行
+false~重複 判斷~執行
+index~4~計次~從 0 到~執行
+value~list~計次 取值~的~執行
+500~every~ms
+跳出
+繼續
+true~暫停直到
+@@@ 9 邏輯
+邏輯~
+條件（Conditionals）
+true~如果~那麼
+true~如果~那麼~否則
+比較（Comparison）
+0~0~=
+0~0~‏<
+"~~"~"~~"~=
+布林值（Boolean）
+且
+或
+不成立
+true
+false
+@@@ 11 數學
+數學~
+0~0~ +
+0~0~-
+0~0~ ×
+0~0~/
+0
+0~1~remainder of~/
+0~0~和~的~最小值
+0~0~和~的~最大值
+0~的絕對值
+0~平方根
+0~四捨五入
+0~10~隨機取數~到
+0~0~0~制限~最低~最高
+0~0~1023~0~4~對應~從低~到高~至低~到高
+隨機取布林值
+0~convert~from~degrees to radians
+π
