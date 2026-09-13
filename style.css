@@ -99,15 +99,6 @@ html[data-theme=dark] .goal{background:linear-gradient(120deg,#3a2340,#2b2450)}
 /* ---- MakeCode 積木 ---- */
 .prog{background:#efe9ff;border-radius:18px;padding:16px;margin:14px 0;border:3px solid #e2d8ff}
 html[data-theme=dark] .prog{background:#241d42;border-color:#39306a}
-.block{--bc:#888;position:relative;background:var(--bc);color:#fff;font-weight:600;
-  border-radius:9px;padding:9px 14px;margin:7px 0;box-shadow:0 3px 0 rgba(0,0,0,.18);
-  display:flex;flex-wrap:wrap;align-items:center;gap:7px;width:fit-content;max-width:100%;font-size:16px}
-.block .tag{background:rgba(255,255,255,.28);border-radius:6px;padding:0 7px;font-size:12px;font-weight:800}
-.block .slot{background:rgba(255,255,255,.92);color:#333;border-radius:7px;padding:1px 9px;font-weight:700}
-.block .slot.round{border-radius:999px}
-.hat{border-top-left-radius:22px;border-top-right-radius:22px;padding-top:14px;font-weight:800}
-.nest{margin-left:22px;border-left:5px solid rgba(0,0,0,.14);padding-left:12px}
-.block .block{margin:0;box-shadow:0 2px 0 rgba(0,0,0,.2);padding:4px 9px;font-size:14px}
 .b-event{--bc:var(--c-event)} .b-basic{--bc:var(--c-basic)} .b-led{--bc:var(--c-led)}
 .b-loop{--bc:var(--c-loop)} .b-logic{--bc:var(--c-logic)} .b-var{--bc:var(--c-var)}
 .b-math{--bc:var(--c-math)} .b-music{--bc:var(--c-music)} .b-radio{--bc:var(--c-radio)}
@@ -210,13 +201,6 @@ html[data-theme=dark] .find{background:#2f2752}
 html[data-theme=dark] .look{background:#3a3115}
 .look b{color:var(--accent);margin-right:7px}
 
-/* 如果／否則是「同一塊」積木 */
-.ifwrap{border-left:5px solid var(--c-logic);border-radius:0 0 0 10px;padding-left:4px;margin:7px 0}
-.ifwrap .block{margin-left:0}
-.ifwrap .ifend{height:12px;width:64px;background:var(--c-logic);border-radius:0 0 9px 9px;
-  margin-left:4px;box-shadow:0 3px 0 rgba(0,0,0,.18)}
-.plainrow{background:var(--card);border:2px dashed var(--muted);border-radius:10px;
-  padding:6px 12px;margin:6px 0;font-weight:600;color:var(--ink2);width:fit-content}
 
 /* 過關慶祝框 */
 .goal.win{background:linear-gradient(120deg,#fff3d6,#ffe0ef);border-color:var(--accent2);margin-top:26px}
@@ -313,7 +297,6 @@ html[data-theme=dark] .dexcard.seen{background:#16311f}
 .dexcard .medal{position:absolute;bottom:9px;right:12px;font-size:19px;display:none}
 .dexcard.got .medal{display:block}
 .dexcard .bwrap{margin:4px 34px 8px 0;min-height:46px;display:flex;align-items:center}
-.dexcard .bwrap .block{margin:0;font-size:15px}
 .dexcard .d{margin:0;color:var(--ink2);font-size:15px;line-height:1.6;padding-right:24px}
 
 /* 測驗 */
@@ -323,7 +306,6 @@ html[data-theme=dark] .dexcard.seen{background:#16311f}
 .quiz .qblock{display:flex;justify-content:center;background:var(--bg2);border-radius:16px;
   padding:16px;margin-bottom:14px;min-height:64px;align-items:center}
 html[data-theme=dark] .quiz .qblock{background:#2f2752}
-.quiz .qblock .block{margin:0}
 .quizopts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .qopt{display:flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:800;
   font-size:15.5px;cursor:pointer;background:var(--card);color:var(--ink);
@@ -385,7 +367,6 @@ html[data-theme=dark] .usedhint{background:#2f2752}
 /* 遊戲用到的積木清單 */
 .uses{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:12px 0}
 .ucard{background:var(--card);border:3px solid var(--line);border-radius:16px;padding:11px 13px 9px}
-.ucard .block{margin:0 0 6px;font-size:14.5px}
 .ucard p{margin:0;color:var(--ink2);font-size:14px;line-height:1.55}
 
 /* 側邊欄：圖鑑／遊戲區兩列，只有最後一列畫分隔線 */
@@ -415,3 +396,17 @@ html[data-theme=dark] .fhint{background:#3a2f14;border-color:#7a5a2a;color:#f0d8
 .moretag{display:inline-block;margin-top:7px;background:#fff6d9;border:2px solid #f0c04a;
   border-radius:999px;padding:2px 10px;font-size:13px;font-weight:800;color:#7a5a10}
 html[data-theme=dark] .moretag{background:#3a2f14;border-color:#7a5a2a;color:#f0d89a}
+
+/* ================= MakeCode 官方渲染的積木圖 ================= */
+/* 渲染前：不要讓孩子看到原始 TypeScript，改顯示載入中 */
+.mc pre{display:none}
+.mc:has(pre)::before{content:"🧩 積木載入中…";color:var(--ink2);font-weight:700;font-size:15px}
+/* 渲染器附帶的「JavaScript／Python」分頁列，孩子用不到 */
+.mc .codesnippet .tabular.menu{display:none!important}
+.mc .codewidget{border:0;box-shadow:none;background:transparent;padding:0;margin:0}
+.mc svg.blocklyPreview{display:block;max-width:100%;height:auto}
+.mc{overflow-x:auto}
+.mc-offline{color:var(--ink2);font-weight:700;font-size:15px}
+/* 圖鑑卡片、遊戲積木卡、測驗題目裡的積木圖不要再套一層框 */
+.dexcard .bwrap .prog.mc,.ucard .prog.mc,.quiz .qblock .mc{background:transparent;border:0;padding:0;margin:0}
+.quiz .qblock svg.blocklyPreview{margin:0 auto}

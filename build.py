@@ -46,12 +46,18 @@ DRAWER = {
 # ===== 小工具 =====
 def esc(s): return html.escape(str(s))
 
-def head(title):
+def head(title, blocks=False):
+    """blocks=True：這頁有積木圖，要載入 MakeCode 渲染器。
+    PXT_LANG cookie 必須在渲染器載入「之前」設好，不然積木會變英文（實測乾淨瀏覽器 A/B 過）。
+    用 async：同步載入外部 script 會卡住整頁，離線時更會卡到逾時。"""
+    embed = ('<script>document.cookie="PXT_LANG=zh-TW; path=/; max-age=31536000; SameSite=Lax"</script>\n'
+             '<script async src="https://makecode.microbit.org/--embed"></script>\n') if blocks else ''
     return ('<!doctype html><html lang="zh-Hant"><head>\n'
             '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
             f'<title>{esc(title)}</title>\n<link rel="stylesheet" href="style.css">\n'
             '<script>try{if(localStorage.getItem("mb_theme")==="dark")document.documentElement.setAttribute("data-theme","dark");'
             'if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed")}catch(e){}</script>\n'
+            + embed +
             '</head>')
 
 def topbar(focus_btn=False, side_btn=False):
@@ -96,32 +102,81 @@ def sidebar(cur):
     return '<aside class="side">' + ''.join(rows) + '</aside>'
 
 def page(cur, body, title, lesson_attr=""):
-    return (head(title) + f'<body{lesson_attr}>' + topbar(focus_btn=True, side_btn=True) +
+    return (head(title, blocks=True) + f'<body{lesson_attr}>' + topbar(focus_btn=True, side_btn=True) +
             '<div class="wrap"><div class="layout">' + sidebar(cur) +
             '<main class="content">' + body + '</main></div></div>\n<script src="app.js"></script></body></html>\n')
 
 # ---- 積木產生器 ----
-def blk(cat, *chunks, hat=False, nest_html=""):
-    """畫一塊積木。抽屜標籤自動從 DRAWER 取，避免抽屜名寫錯。"""
-    cls = f"block b-{cat}" + (" hat" if hat else "")
-    inner = f'<span class="tag">{esc(DRAWER[cat][0])}</span>' + "".join(chunks)
-    out = f'<div class="{cls}">{inner}</div>'
-    if nest_html:
-        out += f'<div class="nest">{nest_html}</div>'
+
+
+# ---- MakeCode 官方渲染器（2026-09-13 起課文積木圖一律用這個）----
+# 使用者回報教材的 CSS 積木跟 MakeCode 網站長得不一樣（沒有 C 形、六角形、下拉 ▾、5×5 方格…），
+# 所以改成把 TypeScript 交給 makecode.microbit.org/--embed 畫，外觀跟編輯器完全一致。
+#   mc()  ：片段 → class="lang-block"，不會被包進「當啟動時」
+#   mcp() ：完整程式 → class="lang-blocks"，頂層敘述會自動包進「當啟動時」、帽子積木照原樣
+# 注意音效一律用 tone_ts()：舊 API music.playTone() 會被畫成「演奏 音階…持續」，跟工具箱不一樣。
+def mc(ts):
+    return f'<div class="prog mc"><pre><code class="lang-block">{esc(ts)}</code></pre></div>'
+
+def mcx(xml):
+    """TypeScript 畫不出來的「單獨一塊」（例如 0 = 0、true、變數 x、0 + 0、空的當啟動時）用 Blockly XML。"""
+    full = f'<xml xmlns="https://developers.google.com/blockly/xml">{xml}</xml>'
+    return f'<div class="prog mc"><pre><code class="lang-blocksxml">{esc(full)}</code></pre></div>'
+
+def mcp(ts):
+    return f'<div class="prog mc"><pre><code class="lang-blocks">{esc(ts)}</code></pre></div>'
+
+def leds_ts(pattern):
+    """把 HEART/STAR… 這種 #/. 圖案轉成 basic.showLeds 的樣板字串。"""
+    rows = [r.ljust(5)[:5] for r in pattern.strip("\n").split("\n")]
+    grid = "\n".join("    " + " ".join("#" if ch == "#" else "." for ch in r) for r in rows)
+    return "basic.showLeds(`\n" + grid + "\n    `)"
+
+# 實測 2026-09-13：頻率 → 下拉顯示的音名；BeatFraction → 拍數
+NOTE_HZ = {"低音 C": 131, "低音 D": 147, "低音 E": 165,
+           "中音 C": 262, "中音 D": 294, "中音 E": 330, "中音 F": 349, "中音 G": 392,
+           "高音 C": 523}
+BEAT = {"1 拍": "Whole", "1/2 拍": "Half", "1/4 拍": "Quarter", "1/8 拍": "Eighth", "2 拍": "Double"}
+
+def tone_ts(note="中音 C", beat="1 拍"):
+    """= 工具箱「音高（Tone）」區那塊 play tone … for … until done"""
+    return (f"music.play(music.tonePlayable({NOTE_HZ[note]}, music.beat(BeatFraction.{BEAT[beat]})), "
+            "music.PlaybackMode.UntilDone)")
+
+# ---- 組 TypeScript 的小工具：縮排不影響渲染，只是讓 build.py 好讀 ----
+def _body(stmts):
+    code = "\n".join(x for x in stmts if x)
+    return "\n".join(("    " + ln) if ln else ln for ln in code.split("\n"))
+
+def ts_forever(*b):
+    return "basic.forever(function () {\n" + _body(b) + "\n})"
+
+def ts_button(btn, *b):   # btn: "A" / "B" / "AB"
+    return f"input.onButtonPressed(Button.{btn}, function () {{\n" + _body(b) + "\n})"
+
+def ts_gesture(g, *b):    # g: "Shake" / "TiltLeft" / "TiltRight" …
+    return f"input.onGesture(Gesture.{g}, function () {{\n" + _body(b) + "\n})"
+
+def ts_if(cond, then=(), els=None):
+    """then/els 傳 tuple；els=None 就是沒有「否則」的那塊。空 tuple 會畫出空的格子（當佔位用）。"""
+    out = f"if ({cond}) {{\n" + _body(then) + "\n}"
+    if els is not None:
+        out += " else {\n" + _body(els) + "\n}"
     return out
 
-def slot(t, round=False): return f'<span class="slot{" round" if round else ""}">{esc(t)}</span>'
-def prog(*items): return '<div class="prog">' + "".join(items) + '</div>'
+def ts_pin(pin, *b):      # pin: "P0" / "P1" / "P2"
+    return f"input.onPinPressed(TouchPin.{pin}, function () {{\n" + _body(b) + "\n}})"
 
-def ifelse(cond_html, then_html, else_html=None):
-    """「如果…那麼…否則」在 MakeCode 是【同一塊】積木，不是兩塊。"""
-    out = '<div class="ifwrap">'
-    out += f'<div class="block b-logic"><span class="tag">{DRAWER["logic"][0]}</span>如果 {cond_html} 那麼</div>'
-    out += f'<div class="nest">{then_html}</div>'
-    if else_html:
-        out += f'<div class="block b-logic">否則</div><div class="nest">{else_html}</div>'
-    out += '<div class="ifend"></div></div>'
-    return out
+def ts_radio_number(*b):
+    return "radio.onReceivedNumber(function (receivedNumber) {\n" + _body(b) + "\n})"
+
+def ts_radio_string(*b):
+    return "radio.onReceivedString(function (receivedString) {\n" + _body(b) + "\n})"
+
+def ts_repeat(n, *b):
+    """重複 N 次 執行（實測：index < N 才是這塊；index <= N 會變成「計次」）"""
+    return f"for (let index = 0; index < {n}; index++) {{\n" + _body(b) + "\n}"
+
 
 # ---- 教學版面元件 ----
 def dot(cat): return f'<span class="dot b-{cat}"></span>'
@@ -245,12 +300,6 @@ def adult(text):
     """給大人的補充，預設收起來。孩子看的主文只留一句話，細節放這裡。"""
     return f'<details class="adult"><summary>👩‍🏫 給大人</summary><div>{text}</div></details>'
 
-def playtone(note_name="中音 C", beat="1 拍"):
-    """MakeCode 目前這塊積木是【英文未翻譯】：play tone (中音 C) for (1 拍) until done。
-    實測 makecode.microbit.org zh-TW v9.0.12。教材一定要照螢幕畫，不要寫成「演奏音階」，
-    那是旁邊另一塊 ringTone（聲音不會停）。"""
-    # 「中音 C」「1 拍」「until done」在螢幕上都是白色圓角的下拉選單，所以三個都用 slot。
-    return blk("music", "play tone ", slot(note_name), " for ", slot(beat), " ", slot("until done"))
 
 # ---- LED 5x5 螢幕 ----
 def leds(pattern, cap=""):
@@ -324,22 +373,7 @@ def B(bid, cat, parts, desc, hat=False, more=False):
     """more=True：這塊在該抽屜底下的「更多」子抽屜裡，圖鑑會標出來。"""
     return dict(id=bid, cat=cat, parts=parts, desc=desc, hat=hat, more=more)
 
-def render_parts(parts):
-    out = []
-    for p in parts:
-        if isinstance(p, str):
-            out.append(esc(p))
-        elif p[0] == "s":
-            out.append(slot(p[1]))
-        elif p[0] == "r":
-            out.append(slot(p[1], True))
-        elif p[0] == "n":
-            # 巢狀的小積木不掛抽屜標籤——它是 shadow，不是從那個抽屜拖出來的
-            out.append(f'<div class="block b-{p[1]}">' + "".join(render_parts(p[2])) + '</div>')
-    return out
 
-def render_block(b):
-    return blk(b["cat"], *render_parts(b["parts"]), hat=b["hat"])
 
 BLOCKS = [
     # ---- 基本（藍色）----
@@ -362,7 +396,7 @@ BLOCKS = [
     B("event.temperature", "event", ["溫度感測值 (°C)"], "它感覺到的溫度"),
     # ---- 音效（紅色）----
     B("music.playTone", "music", ["play tone ", ("s", "中音 C"), " for ", ("s", "1 拍"), " ", ("s", "until done")],
-      "彈一個音，彈完會自己停。上面是英文，找最長的那塊"),
+      "彈一個音，彈完會自己停。上面是英文，在「音高（Tone）」區第一塊"),
     B("music.ringTone", "music", ["演奏 音階 ", ("s", "中音 C")], "也是彈一個音，但它不會自己停"),
     B("music.rest", "music", ["rest for ", ("s", "1 拍")], "安靜一下下，不出聲"),
     B("music.stopAll", "music", ["停止播放所有音效"], "叫它閉嘴，馬上安靜"),
@@ -403,6 +437,73 @@ BLOCKS = [
     B("math.random", "math", ["隨機取數 ", ("s", "0"), " 到 ", ("s", "10")], "抽籤，每次給不一樣的數字"),
 ]
 
+# 圖鑑、遊戲「用到的積木」卡片的畫法（交給 MakeCode 渲染器）。
+# 單獨一個運算式（0 = 0、true、x、0 + 0）TypeScript 畫不出來，實測會變成原始文字，所以改用 XML。
+def _num(n):
+    return f'<shadow type="math_number"><field name="NUM">{n}</field></shadow>'
+
+def _cmp(op):
+    return f'<block type="logic_compare"><field name="OP">{op}</field><value name="A">{_num(0)}</value><value name="B">{_num(0)}</value></block>'
+
+def _arith(op):
+    return f'<block type="math_arithmetic"><field name="OP">{op}</field><value name="A">{_num(0)}</value><value name="B">{_num(0)}</value></block>'
+
+BLOCK_VIEW = {
+    "basic.showNumber": ("ts", "basic.showNumber(0)"),
+    "basic.showLeds": ("ts", leds_ts(EMPTY)),
+    "basic.showIcon": ("ts", "basic.showIcon(IconNames.Heart)"),
+    "basic.showString": ("ts", 'basic.showString("Hello!")'),
+    "basic.clearScreen": ("ts", "basic.clearScreen()"),
+    "basic.forever": ("ts", ts_forever()),
+    "basic.onStart": ("xml", '<block type="pxt-on-start"></block>'),
+    "basic.pause": ("ts", "basic.pause(100)"),
+    "basic.showArrow": ("ts", "basic.showArrow(ArrowNames.North)"),
+    "event.onButton": ("ts", ts_button("A")),
+    "event.onGesture": ("ts", ts_gesture("Shake")),
+    "event.onPin": ("ts", ts_pin("P0")),
+    "event.buttonIsPressed": ("ts", "input.buttonIsPressed(Button.A)"),
+    "event.pinIsPressed": ("ts", "input.pinIsPressed(TouchPin.P0)"),
+    "event.lightLevel": ("ts", "input.lightLevel()"),
+    "event.temperature": ("ts", "input.temperature()"),
+    "music.playTone": ("ts", tone_ts()),
+    "music.ringTone": ("ts", "music.ringTone(262)"),
+    "music.rest": ("ts", "music.rest(music.beat(BeatFraction.Whole))"),
+    "music.stopAll": ("ts", "music.stopAllSounds()"),
+    "led.plot": ("ts", "led.plot(0, 0)"),
+    "led.unplot": ("ts", "led.unplot(0, 0)"),
+    "led.toggle": ("ts", "led.toggle(0, 0)"),
+    "led.point": ("ts", "led.point(0, 0)"),
+    "led.brightness": ("ts", "led.setBrightness(255)"),
+    "radio.setGroup": ("ts", "radio.setGroup(1)"),
+    "radio.sendNumber": ("ts", "radio.sendNumber(0)"),
+    "radio.sendString": ("ts", 'radio.sendString("")'),
+    "radio.onNumber": ("ts", ts_radio_number()),
+    "radio.onString": ("ts", ts_radio_string()),
+    "loop.repeat": ("ts", ts_repeat(4)),
+    "loop.while": ("ts", "while (false) {\n\n}"),
+    "loop.forIndex": ("ts", "for (let index = 0; index <= 4; index++) {\n\n}"),
+    "logic.if": ("ts", ts_if("true", ())),
+    "logic.ifElse": ("ts", ts_if("true", (), ())),
+    "logic.eq": ("xml", _cmp("EQ")),
+    "logic.lt": ("xml", _cmp("LT")),
+    "logic.and": ("xml", '<block type="logic_operation"><field name="OP">AND</field></block>'),
+    "logic.or": ("xml", '<block type="logic_operation"><field name="OP">OR</field></block>'),
+    "logic.true": ("xml", '<block type="logic_boolean"><field name="BOOL">TRUE</field></block>'),
+    "var.set": ("ts", "x = 0"),
+    "var.change": ("ts", "x += 1"),
+    "var.get": ("xml", '<variables><variable id="vx">x</variable></variables>'
+                       '<block type="variables_get"><field name="VAR" id="vx">x</field></block>'),
+    "math.add": ("xml", _arith("ADD")),
+    "math.sub": ("xml", _arith("MINUS")),
+    "math.mul": ("xml", _arith("MULTIPLY")),
+    "math.div": ("xml", _arith("DIVIDE")),
+    "math.random": ("ts", "randint(0, 10)"),
+}
+
+def render_dex_block(b):
+    kind, src = BLOCK_VIEW[b["id"]]
+    return mcx(src) if kind == "xml" else mc(src)
+
 DEX_CATS = ["basic", "event", "music", "led", "radio", "loop", "logic", "var", "math"]
 
 # ================= 積木圖鑑（blocks.html）=================
@@ -423,7 +524,7 @@ def build_blocks():
             cards.append(
                 f'<div class="dexcard" data-i="{i}" data-cat="{c}">'
                 f'<span class="box"></span>'
-                f'<div class="bwrap">{render_block(b)}</div>'
+                f'<div class="bwrap">{render_dex_block(b)}</div>'
                 f'<p class="d">{esc(b["desc"])}</p>{more_tag}'
                 f'<span class="medal">🏅</span></div>')
         panels.append(f'<div class="dexpanel{cur}" data-cat="{c}">' + "".join(cards) + '</div>')
@@ -553,8 +654,7 @@ def build_l0():
         step(4, "把它拖進「當啟動時」裡面",
              '<p>用滑鼠<b>拖</b>到「當啟動時」的<b>凹槽裡面</b>。</p>'
              '<p>會「喀」一聲卡住。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("❤️"))))
+             + mcp("basic.showIcon(IconNames.Heart)")
              + look("積木卡進去了，跟上面那張圖一樣。")
              + adult("拖放對小手不容易。訣竅：<b>不要放太準</b>——只要拖到凹槽<b>附近</b>，"
                      "出現一條灰色的影子線就可以放手，它會自己吸過去。<br>"
@@ -612,40 +712,31 @@ def build_l1():
         step(1, "先讓它亮一顆愛心",
              find("basic", "顯示圖示")
              + '<p>拖進「當啟動時」裡面，圖案選<b>愛心</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("❤️"))))
+             + mcp("basic.showIcon(IconNames.Heart)")
              + look("假的那台亮出愛心 ❤️")) +
 
         step(2, "換一個圖案玩玩",
              '<p>點積木上的<b>圖案</b>，選一個<b>笑臉</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("😀"))))
+             + mcp("basic.showIcon(IconNames.Happy)")
              + look("愛心變成笑臉 😀")
              + leds(SMILE, "笑臉")) +
 
         step(3, "拖一塊「顯示文字」下來",
              find("basic", "顯示文字", "（積木上本來寫 <code>Hello!</code>）")
              + '<p>拖到<b>「顯示圖示」的下面</b>，貼著它放。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
-                                  blk("basic", "顯示文字 ", slot("Hello!"))))
+             + mcp('basic.showIcon(IconNames.Happy)\nbasic.showString("Hello!")')
              + look("先笑臉，再跑出 <code>Hello!</code> ➡️")) +
 
         step(4, "把它改成你的名字",
              '<p>點 <code>Hello!</code> 那一格，打上你的名字。</p>'
              + note("🔤 要用<b>英文字母</b>", "例如 <code>LILY</code>。中文字它顯示不出來。")
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
-                                  blk("basic", "顯示文字 ", slot("LILY"))))
+             + mcp('basic.showIcon(IconNames.Happy)\nbasic.showString("LILY")')
              + look("笑臉之後，名字一個字母一個字母<b>滑過去</b> ➡️")) +
 
         step(5, "最後加一個數字",
              find("basic", "顯示數字")
              + '<p>放在最下面，把 <code>0</code> 改成你的<b>年紀</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
-                                  blk("basic", "顯示文字 ", slot("LILY")) +
-                                  blk("basic", "顯示數字 ", slot("7"))))
+             + mcp('basic.showIcon(IconNames.Happy)\nbasic.showString("LILY")\nbasic.showNumber(7)')
              + look("笑臉 → 名字 → 數字，一個接一個出現。")
              + adult("這一課的觀念是<b>順序</b>：積木由上往下，一個做完才做下一個。<br>"
                      "「換你玩」的第一題就是在驗收這件事——換順序，出來的東西就換順序。"
@@ -677,8 +768,7 @@ def build_l2():
              + note("⚠️ 它在「基本」抽屜（藍色）",
                     "<b>不在</b> LED 抽屜裡，去 LED 抽屜找會找不到。")
              + '<p>把它拖進 <b>「當啟動時」</b> 裡面。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示指示燈 ", slot("5×5 格子"))))
+             + mcp(leds_ts(EMPTY))
              + look("假的那台整個黑黑的。還沒點格子，所以是對的 👍")) +
 
         step(2, "點格子，畫一個笑臉",
@@ -689,7 +779,7 @@ def build_l2():
 
         step(3, "找到綠色的「重複無限次」",
              '<p>它<b>一開始就在畫面上</b>了，不用去抽屜找。</p>'
-             + prog(blk("loop", "重複無限次", hat=True))
+             + mcp(ts_forever())
              + tip("🔁 它會做什麼", "把積木放進去，它就會<b>一直做、不停下來</b>。")
              + look("找到那塊綠色的了嗎？找到就打勾 ✅")
              + adult("這一步不動手，只是先認位置。下一步要往裡面放東西，"
@@ -698,35 +788,25 @@ def build_l2():
         step(4, "放第一張圖進去：笑臉",
              '<p>再拖<b>一塊</b>「顯示指示燈」，放進 <b>「重複無限次」</b> 裡面。</p>'
              '<p>點格子，畫<b>笑臉</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "顯示指示燈 ", slot("😊 笑臉"))))
+             + mcp(ts_forever(leds_ts(SMILE)))
              + look("笑臉一直亮著，沒有變化。對的 👍")) +
 
         step(5, "放第二張圖：哭臉",
              '<p>再拖<b>一塊</b>「顯示指示燈」，放在<b>笑臉的下面</b>。</p>'
              '<p>這次畫<b>哭臉</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "顯示指示燈 ", slot("😊 笑臉")) +
-                                  blk("basic", "顯示指示燈 ", slot("😢 哭臉"))))
+             + mcp(ts_forever(leds_ts(SMILE), leds_ts(SAD)))
              + look("兩張圖換<b>超快</b>，糊成一團 😵 下一步修好它 👇")) +
 
         step(6, "在笑臉後面加一塊「暫停」",
              find("basic", "暫停 100 毫秒")
              + '<p>放在<b>笑臉的下面</b>，把 <code>100</code> 改成 <code>500</code>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "顯示指示燈 ", slot("😊 笑臉")) +
-                                  blk("basic", "暫停 ", slot("500"), " 毫秒") +
-                                  blk("basic", "顯示指示燈 ", slot("😢 哭臉"))))
+             + mcp(ts_forever(leds_ts(SMILE), "basic.pause(500)", leds_ts(SAD)))
              + tip("⏱️ 500 是多久", "<b>500 就是半秒</b>，眨一下眼睛那麼久。")
              + look("笑臉會<b>停一下</b>了，哭臉還是一閃就過。")) +
 
         step(7, "在哭臉後面也加一塊",
              '<p>再拖一塊「暫停」，放在<b>哭臉的下面</b>，也改成 <code>500</code>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "顯示指示燈 ", slot("😊 笑臉")) +
-                                  blk("basic", "暫停 ", slot("500"), " 毫秒") +
-                                  blk("basic", "顯示指示燈 ", slot("😢 哭臉")) +
-                                  blk("basic", "暫停 ", slot("500"), " 毫秒")))
+             + mcp(ts_forever(leds_ts(SMILE), "basic.pause(500)", leds_ts(SAD), "basic.pause(500)"))
              + look("笑臉、哭臉、笑臉、哭臉⋯⋯換表情了 🎞️")
              + adult("積木上寫的是「毫秒」，1000 毫秒 = 1 秒。"
                      "孩子只要記住「500 是半秒」就夠了，不用背單位換算。<br>"
@@ -756,29 +836,27 @@ def build_l3():
         + step(1, "拿一頂「帽子」出來",
                find("event", "當按鈕 A 被按下")
                + '<p>拖到畫面<b>空白的地方</b>放著就好，<b>不用</b>放進「當啟動時」。</p>'
-               + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True))
+               + mcp(ts_button("A"))
                + tip("🎩 為什麼叫帽子",
-                     "它上面圓圓的、蓋在最上面，像一頂帽子。<b>帽子底下夾什麼，就做什麼。</b>")
+                     "它的上面<b>沒有缺口</b>，只能放在最上面，像一頂帽子。<b>帽子裡面夾什麼，就做什麼。</b>")
                + look("畫面上多了一塊紫紅色的積木，裡面空空的。")) +
 
         step(2, "帽子底下放一個笑臉",
              find("basic", "顯示圖示")
              + '<p>拖進帽子裡面，圖案選<b>笑臉</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("😀"))))
+             + mcp(ts_button("A", "basic.showIcon(IconNames.Happy)"))
              + look("在假的那台上，用滑鼠<b>點 A 按鈕</b> → 笑臉跳出來 😀")
              + leds(SMILE, "按 A")) +
 
         step(3, "再拖一頂帽子，改成 B",
              '<p>再拖一塊 <b>「當按鈕 A 被按下」</b> 出來。</p>'
              '<p>點積木上的 <b>A</b>，選單裡改成 <b>B</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True))
+             + mcp(ts_button("B"))
              + look("現在有<b>兩頂</b>帽子：一頂 A、一頂 B。")) +
 
         step(4, "B 的帽子裡放哭臉",
              '<p>拖一塊「顯示圖示」進去，圖案選<b>哭臉</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("😢"))))
+             + mcp(ts_button("B", "basic.showIcon(IconNames.Sad)"))
              + look("點 A → 笑臉；點 B → 哭臉。")
              + leds(SAD, "按 B")
              + adult("兩頂帽子不會打架——micro:bit 同時記住兩個規則，按哪顆就做哪件事。<br>"
@@ -786,13 +864,12 @@ def build_l3():
 
         step(5, "再拉一頂，改成 A+B",
              '<p>再拖一頂帽子，點按鈕的選單，選 <b>A+B</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A+B", True), " 被按下", hat=True))
+             + mcp(ts_button("AB"))
              + look("第三頂帽子出現了。")) +
 
         step(6, "裡面放愛心",
              '<p>放一塊「顯示圖示」，選<b>愛心</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A+B", True), " 被按下", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("❤️"))))
+             + mcp(ts_button("AB", "basic.showIcon(IconNames.Heart)"))
              + look("<b>兩顆一起按</b> → 愛心 ❤️")
              + leds(HEART, "A＋B 一起按")) +
 
@@ -839,38 +916,32 @@ def build_l4():
              find("var", "變數 count 設為 0")
              + '<p>拖進 <b>「當啟動時」</b> 裡面。</p>'
              '<p>數字<b>不用改</b>，就留 <code>0</code>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 設為 ", slot("0"))))
+             + mcp("let count = 0")
              + tip("📦 「設為 0」是什麼", "把盒子裡的東西<b>整個換成</b> 0。")
              + look("畫面<b>沒有變化</b>。這一步是在做準備，是正常的 👍")) +
 
         step(4, "拉一頂 A 的帽子",
              '<p>去 <b>輸入</b> 抽屜，拿 <b>「當按鈕 A 被按下」</b>（第 3 課學過）。</p>'
              '<p>放在空白的地方。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True))
+             + mcp(ts_button("A"))
              + look("畫面上多了一頂空空的帽子。")) +
 
         step(5, "帽子裡放「加一個」",
              find("var", "變數 count 改變 1")
              + '<p>拖進帽子裡。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 改變 ", slot("1"))))
+             + mcp(ts_button("A", "count += 1"))
              + look("點 A <b>還是沒反應</b>。因為還沒叫它秀出來，下一步 👇")) +
 
         step(6, "放一塊「顯示數字」",
              find("basic", "顯示數字")
              + '<p>放在「改變 1」的<b>下面</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 改變 ", slot("1")) +
-                                  blk("basic", "顯示數字 ", slot("0"))))
+             + mcp(ts_button("A", "count += 1", "basic.showNumber(0)"))
              + look("點 A → 一直出現 <b>0</b>。快好了，再一步 👇")) +
 
         step(7, "把圓圓的 count 拖進白框框",
              '<p>回 <b>變數</b> 抽屜，最下面有一塊<b>圓圓的</b> <b class="bname">count</b>。</p>'
              '<p>把它<b>拖進</b>「顯示數字」的白色框框裡。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 改變 ", slot("1")) +
-                                  blk("basic", "顯示數字 ", slot("count"))))
+             + mcp(ts_button("A", "count += 1", "basic.showNumber(count)"))
              + look("點 A → <b>1</b>，再點 → <b>2</b>，再點 → <b>3</b>⋯⋯它記住了！")
              + leds(THREE, "點了 3 下")
              + adult("圓形積木要「塞進」白框框，這個拖放動作對小手是難的。"
@@ -878,20 +949,17 @@ def build_l4():
 
         step(8, "再拉一頂 B 的帽子",
              '<p>做法跟第 4 步一樣，但把 <b>A</b> 改成 <b>B</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True))
+             + mcp(ts_button("B"))
              + look("畫面上有<b>兩頂</b>帽子了。")) +
 
         step(9, "B 的帽子裡放「設為 0」",
              '<p>再拖一塊 <b>「變數 count 設為 0」</b> 進去。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 設為 ", slot("0"))))
+             + mcp(ts_button("B", "count = 0"))
              + look("點 A 幾下讓數字變大，再點 B——螢幕<b>沒反應</b>。再一步就好 👇")) +
 
         step(10, "最後放一塊「顯示數字 count」",
              '<p>跟第 6、7 步一樣：放「顯示數字」，再把圓圓的 <code>count</code> 塞進去。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 設為 ", slot("0")) +
-                                  blk("basic", "顯示數字 ", slot("count"))))
+             + mcp(ts_button("B", "count = 0", "basic.showNumber(count)"))
              + note("✨ 這一課最重要的一件事",
                     "「<b>改變 1</b>」＝ 在原本的數字上<b>再加 1</b>（3 變 4）。<br>"
                     "「<b>設為 0</b>」＝ <b>整個換成</b> 0。")
@@ -923,45 +991,34 @@ def build_l5():
         + step(1, "拿出「重複 4 次」",
                find("loop", "重複 4 次 執行")
                + '<p>拖進 <b>「當啟動時」</b> 裡面。</p>'
-               + prog(blk("basic", slot("當啟動時"), hat=True,
-                          nest_html=blk("loop", "重複 ", slot("4"), " 次 執行")))
+               + mcp(ts_repeat(4))
                + look("裡面空空的，還沒事情發生。")) +
 
         step(2, "第一塊：放星星",
-             find("basic", "顯示圖示", "（圖案選<b>星星</b>）")
-             + '<p>拖進 <b>「重複 4 次」</b> 裡面。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("loop", "重複 ", slot("4"), " 次 執行",
-                                      nest_html=blk("basic", "顯示圖示 ", slot("⭐")))))
-             + look("星星亮著，<b>不會閃</b>。對的，還沒做完 👍")
-             + leds(STAR, "亮 ✨")) +
+             find("basic", "顯示指示燈", "（在格子上<b>自己畫</b>星星）")
+             + note("⭐ 為什麼不用「顯示圖示」",
+                    "「顯示圖示」的選單裡<b>沒有星星</b>，所以要自己點格子畫。")
+             + '<p>拖進 <b>「重複 4 次」</b> 裡面，照下面這樣點格子：</p>'
+             + leds(STAR, "照這樣點 ✨")
+             + mcp(ts_repeat(4, leds_ts(STAR)))
+             + look("星星亮著，<b>不會閃</b>。對的，還沒做完 👍")) +
 
         step(3, "第二塊：停一下",
              find("basic", "暫停 100 毫秒", "（把 <code>100</code> 改成 <code>300</code>）")
              + '<p>放在<b>星星的下面</b>。</p>'
-             + prog(blk("loop", "重複 ", slot("4"), " 次 執行", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("⭐")) +
-                                  blk("basic", "暫停 ", slot("300"), " 毫秒")))
+             + mc(ts_repeat(4, leds_ts(STAR), "basic.pause(300)"))
              + look("看起來還是一樣。再兩塊就成功 👇")) +
 
         step(4, "第三塊：把燈關掉",
              find("basic", "清空畫面", "（燈<b>全部關掉</b>）")
              + '<p>放在「暫停」的<b>下面</b>。</p>'
-             + prog(blk("loop", "重複 ", slot("4"), " 次 執行", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("⭐")) +
-                                  blk("basic", "暫停 ", slot("300"), " 毫秒") +
-                                  blk("basic", "清空畫面")))
+             + mc(ts_repeat(4, leds_ts(STAR), "basic.pause(300)", "basic.clearScreen()"))
              + look("星星開始<b>閃</b>了，但閃得很怪。最後一塊 👇")
              + leds(EMPTY, "暗 🌑")) +
 
         step(5, "第四塊：暗的時候也停一下",
              '<p>再拖一塊 <b>「暫停」</b>，放在最下面，也改成 <code>300</code>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("loop", "重複 ", slot("4"), " 次 執行",
-                                      nest_html=blk("basic", "顯示圖示 ", slot("⭐")) +
-                                                blk("basic", "暫停 ", slot("300"), " 毫秒") +
-                                                blk("basic", "清空畫面") +
-                                                blk("basic", "暫停 ", slot("300"), " 毫秒"))))
+             + mcp(ts_repeat(4, leds_ts(STAR), "basic.pause(300)", "basic.clearScreen()", "basic.pause(300)"))
              + look("星星<b>亮、暗、亮、暗</b>⋯⋯閃完 <b>4 遍</b>就停下來 ✋")
              + adult("這四塊是一個完整的節奏：亮 → 等 → 暗 → 等。<br>"
                      "如果他覺得「為什麼要停兩次」，讓他把最後一塊拔掉再看一次，"
@@ -969,10 +1026,10 @@ def build_l5():
 
         step(6, "跟「重複無限次」比一比",
              '<p>這一步<b>不用動手</b>，看懂就好 😊</p>'
-             + prog(blk("loop", "重複 ", slot("4"), " 次 執行", hat=True,
-                        nest_html='<div class="plainrow">做完 4 遍就<b>停</b> ✋</div>'))
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html='<div class="plainrow"><b>一直做</b>，不會停 ♾️</div>'))
+             + '<p>「重複 4 次」：做完 4 遍就<b>停</b> ✋</p>'
+             + mc(ts_repeat(4))
+             + '<p>「重複無限次」：<b>一直做</b>，不會停 ♾️</p>'
+             + mc(ts_forever())
              + look("看得懂就打勾 ✅")
              + adult("什麼時候用哪一個：閃 3 下、跳 5 下這種<b>算得出次數</b>的，用「重複 N 次」；"
                      "心跳燈、時鐘這種<b>一直不停</b>的，用「重複無限次」。<br>"
@@ -981,12 +1038,7 @@ def build_l5():
         step(7, "換個玩法：讓它自己數數",
              '<p>把第 4 課那個盒子 <code>count</code> 拿出來用。</p>'
              '<p>（盒子不見了就去 <b>變數</b> 抽屜再做一個。）</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("count"), " 設為 ", slot("0")) +
-                                  blk("loop", "重複 ", slot("5"), " 次 執行",
-                                      nest_html=blk("var", "變數 ", slot("count"), " 改變 ", slot("1")) +
-                                                blk("basic", "顯示數字 ", slot("count")) +
-                                                blk("basic", "暫停 ", slot("300"), " 毫秒"))))
+             + mcp("let count = 0\n" + ts_repeat(5, "count += 1", "basic.showNumber(count)", "basic.pause(300)"))
              + look("螢幕自己跑出 <b>1、2、3、4、5</b>——你完全沒按按鈕 ✨")
              + adult("這一步是把第 4 課（盒子）和這一課（重複）接起來，"
                      "是後面第 9、11 課的地基。如果他做得很吃力，可以只做到第 6 步，"
@@ -1005,7 +1057,6 @@ def build_l5():
 
 # ================= 第 6 課 =================
 def build_l6():
-    rand = blk("math", "隨機取數 ", slot("1"), " 到 ", slot("6"))
     body = (
         top("l6", "第 6 課", "🎲 搖一搖骰子") +
         goal("🎲", "<b>搖一搖</b> micro:bit，它就跳出 <b>1～6</b> 的點數。") +
@@ -1017,13 +1068,13 @@ def build_l6():
                find("math", "隨機取數 0 到 10")
                + '<p>先拖到<b>空白的地方</b>放著。把 <code>0</code> 改成 <code>1</code>，'
                  '<code>10</code> 改成 <code>6</code>。</p>'
-               + prog(rand)
+               + mc("randint(1, 6)")
                + look("積木上寫著「隨機取數 <b>1</b> 到 <b>6</b>」。")) +
 
         step(2, "拿一頂「搖一搖」的帽子",
              find("event", "當姿勢 晃動 發生")
              + '<p>拖到空白的地方，<b>什麼都不用改</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True))
+             + mcp(ts_gesture("Shake"))
              + look("畫面多了一頂紫紅色的帽子。")
              + adult("積木上的「姿勢」＝你怎麼拿它：搖、翻過來、歪一邊，它都分得出來。"
                      "下拉選單裡還有「正面朝上」「左側偏低」等等，第 7 課會玩到。")) +
@@ -1031,16 +1082,14 @@ def build_l6():
         step(3, "帽子裡放「顯示數字」",
              find("basic", "顯示數字")
              + '<p>拖進帽子裡面。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示數字 ", slot("0"))))
+             + mcp(ts_gesture("Shake", "basic.showNumber(0)"))
              + look("搖一搖（假的那台按 <b>SHAKE</b>）→ 一直出現 <b>0</b>。")) +
 
         step(4, "把抽籤積木塞進白框框",
              '<p>把第 1 步那塊<b>紫色的「隨機取數」</b>，'
              '<b>拖進</b>「顯示數字」的白色框框裡。</p>'
              '<p>它們會<b>合體</b>變成一塊。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示數字 ", rand)))
+             + mcp(ts_gesture("Shake", "basic.showNumber(randint(1, 6))"))
              + look("搖一搖 → 跳出一個數字！再搖會<b>變別的</b> 🎲")
              + leds(THREE, "搖出 3")) +
 
@@ -1048,9 +1097,7 @@ def build_l6():
              '<p>去 <b>變數</b> 抽屜，建立一個新盒子叫 <code>dice</code>。</p>'
              '<p>把 <b>「變數 dice 設為」</b> 放進帽子裡，'
              '再把<b>抽籤積木</b>搬進它的框框。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("var", "變數 ", slot("dice"), " 設為 ", rand) +
-                                  blk("basic", "顯示數字 ", slot("dice"))))
+             + mcp(ts_gesture("Shake", "dice = randint(1, 6)", "basic.showNumber(dice)"))
              + '<p>再把「顯示數字」裡面換成圓圓的 <code>dice</code>。</p>'
              + look("搖一搖 → 一樣跳數字。看起來沒變，但它<b>記住</b>了 📦")
              + adult("為什麼要多一個盒子：等一下要「判斷是不是 6」，"
@@ -1061,27 +1108,20 @@ def build_l6():
              + note("⚠️ 「否則」不是另外一塊",
                     "抽屜裡有<b>兩塊</b>長得很像的。<br>要挑<b>有「否則」</b>的那一塊。")
              + '<p>拖進帽子裡，放在「設為」的<b>下面</b>。</p>'
-             + prog(ifelse(slot("（等一下放）"),
-                           '<div class="plainrow">（等一下放）</div>',
-                           '<div class="plainrow">（等一下放）</div>'))
+             + mc(ts_if("true", (), ()))
              + look("架子搭好了，裡面還空空的。")) +
 
         step(7, "填上條件：dice = 6",
              '<p>去 <b>邏輯</b> 抽屜，拿那塊 <b class="bname">=</b> 積木。</p>'
              '<p>放進「如果」後面，左邊塞圓圓的 <code>dice</code>、右邊打 <code>6</code>。</p>'
-             + prog(ifelse(slot("dice") + ' = ' + slot("6"),
-                           '<div class="plainrow">（等一下放）</div>',
-                           '<div class="plainrow">（等一下放）</div>'))
+             + mc(ts_if("dice == 6", (), ()))
              + look("條件填好了，但兩條路還是空的。")) +
 
         step(8, "兩條路各放一樣東西",
              '<p><b>那麼</b> 裡面放 <b>「顯示圖示」</b>，選<b>愛心</b>。</p>'
              '<p><b>否則</b> 裡面放 <b>「顯示數字 dice」</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("var", "變數 ", slot("dice"), " 設為 ", rand) +
-                                  ifelse(slot("dice") + ' = ' + slot("6"),
-                                         blk("basic", "顯示圖示 ", slot("❤️")),
-                                         blk("basic", "顯示數字 ", slot("dice")))))
+             + mcp(ts_gesture("Shake", "dice = randint(1, 6)",
+                            ts_if("dice == 6", ("basic.showIcon(IconNames.Heart)",), ("basic.showNumber(dice)",))))
              + tip("🛣️ 「如果／否則」是什麼",
                    "一個<b>岔路口</b>。搖到 6 走上面，其他走下面。每次<b>只走一條</b>。")
              + look("一直搖。搖到 <b>6</b> → 愛心 ❤️，其他 → 顯示點數。")
@@ -1101,8 +1141,6 @@ def build_l6():
 
 # ================= 第 7 課 =================
 def build_l7():
-    temp = blk("event", "溫度感測值 (°C)")
-    light = blk("event", "光線感測值")
     body = (
         top("l7", "第 7 課", "🦸 micro:bit 的超能力") +
         goal("🦸", "做一支<b>溫度計</b>，再做一個會自己亮的<b>小夜燈</b>。") +
@@ -1115,15 +1153,13 @@ def build_l7():
 
         + step(1, "拉一頂 A 的帽子，放「顯示數字」",
                '<p>帽子跟「顯示數字」都學過了，先把它們拼好。</p>'
-               + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                          nest_html=blk("basic", "顯示數字 ", slot("0"))))
+               + mcp(ts_button("A", "basic.showNumber(0)"))
                + look("點 A → 出現 <b>0</b>。")) +
 
         step(2, "換成「它感覺到的溫度」",
              find("event", "溫度感測值 (°C)", "（圓圓的那種積木，在<b>輸入</b>抽屜）")
              + '<p><b>拖進</b>「顯示數字」的白色框框裡。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("basic", "顯示數字 ", temp)))
+             + mcp(ts_button("A", "basic.showNumber(input.temperature())"))
              + look("點 A → 跳出<b>現在幾度</b> 🌡️")
              + tip("🔥 試試看",
                    "下載到真的板子，<b>手指壓住板子</b>暖一下再按 A——數字會變大！")
@@ -1133,35 +1169,27 @@ def build_l7():
         step(3, "小夜燈：找到「重複無限次」",
              '<p>小夜燈要<b>一直</b>盯著房間亮不亮。</p>'
              '<p>畫面上那塊綠色的 <b>「重複無限次」</b> 就是拿來做這個的。</p>'
-             + prog(blk("loop", "重複無限次", hat=True))
+             + mcp(ts_forever())
              + look("找到那塊綠色的就打勾 ✅")) +
 
         step(4, "裡面放「如果…那麼…否則」",
              find("logic", "如果 … 那麼 … 否則", "（要有「否則」的那塊）")
              + '<p>拖進「重複無限次」裡面。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=ifelse(slot("（等一下放）"),
-                                         '<div class="plainrow">（等一下放）</div>',
-                                         '<div class="plainrow">（等一下放）</div>')))
+             + mcp(ts_forever(ts_if("true", (), ())))
              + look("架子搭好了，裡面還空空的。")) +
 
         step(5, "填條件：比 50 還暗",
              find("logic", "<", "（念做「小於」，在邏輯抽屜）")
              + find("event", "光線感測值", "（<b>0</b> 是全黑，<b>255</b> 是很亮）")
              + '<p>把它們拼成 <b>「光線感測值 &lt; 50」</b>，放到「如果」後面。</p>'
-             + prog(ifelse(light + ' &lt; ' + slot("50"),
-                           '<div class="plainrow">（等一下放）</div>',
-                           '<div class="plainrow">（等一下放）</div>'))
+             + mc(ts_if("input.lightLevel() < 50", (), ()))
              + tip("🔍 「&lt;」念做「小於」", "整句是「現在<b>比 50 還暗</b>」。")
              + look("條件填好了，兩條路還是空的。")) +
 
         step(6, "暗就亮星星，亮就關掉",
-             '<p><b>那麼</b> 裡面放「顯示圖示」，選<b>星星</b>。</p>'
+             '<p><b>那麼</b> 裡面放「顯示指示燈」，點格子畫一顆<b>星星</b>（第 5 課畫過）。</p>'
              '<p><b>否則</b> 裡面放 <b>「清空畫面」</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=ifelse(light + ' &lt; ' + slot("50"),
-                                         blk("basic", "顯示圖示 ", slot("⭐")),
-                                         blk("basic", "清空畫面"))))
+             + mcp(ts_forever(ts_if("input.lightLevel() < 50", (leds_ts(STAR),), ("basic.clearScreen()",))))
              + look("用手<b>蓋住</b>板子 → 星星亮 ✨；<b>放開</b> → 熄掉。")
              + leds(STAR, "變暗 → 夜燈亮")
              + adult("如果太晚亮或一直亮著，把 <code>50</code> 調大或調小。"
@@ -1171,24 +1199,22 @@ def build_l7():
         step(7, "拉一頂「往左歪」的帽子",
              find("event", "當姿勢 晃動 發生")
              + '<p>拖出來，點 <b>晃動</b> 的選單，改成 <b>「左側偏低」</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("左側偏低", True), " 發生", hat=True))
+             + mcp(ts_gesture("TiltLeft"))
              + look("多了一頂帽子，上面寫著「左側偏低」。")
              + adult("「左側偏低」就是往左邊歪。選單裡還有右側偏低、正面朝上、背面朝上、"
                      "標誌朝上、自由掉落——都可以讓他玩玩看。")) +
 
         step(8, "裡面放向左的箭頭",
-             '<p>放一塊「顯示圖示」，選<b>向左的箭頭</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("左側偏低", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("⬅️"))))
-             + look("把板子<b>往左歪</b> → 箭頭指左 ⬅️")
-             + leds(ARROW_L, "往左歪")) +
+             find("basic", "顯示箭頭", "（基本抽屜的<b>最後一塊</b>）")
+             + '<p>放進帽子裡，點<b>北</b>的選單，改成<b>西</b>（西就是左邊）。</p>'
+             + note("🧭 為什麼不用「顯示圖示」", "「顯示圖示」的選單裡<b>沒有箭頭</b>，要用這塊。")
+             + mcp(ts_gesture("TiltLeft", "basic.showArrow(ArrowNames.West)"))
+             + look("把板子<b>往左歪</b> → 箭頭指左 ⬅️")) +
 
         step(9, "再做一頂「往右歪」的",
-             '<p>做法一模一樣，選單改成 <b>「右側偏低」</b>，圖案選<b>向右的箭頭</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("右側偏低", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("➡️"))))
-             + look("往左歪 → 指左；往右歪 → 指右。像方向盤 🚗")
-             + leds(ARROW_R, "往右歪")) +
+             '<p>做法一模一樣：帽子改成 <b>「右側偏低」</b>，箭頭改成<b>東</b>（東就是右邊）。</p>'
+             + mcp(ts_gesture("TiltRight", "basic.showArrow(ArrowNames.East)"))
+             + look("往左歪 → 指左；往右歪 → 指右。像方向盤 🚗")) +
 
         tryit("把夜燈的 <code>50</code> 改成 <code>100</code> 或 <code>20</code>，找出最好用的數字。",
               "做一個<b>怕熱的臉</b>：溫度大於 30 就哭臉 😢，不然就笑臉 😀。") +
@@ -1215,7 +1241,7 @@ def build_l8():
         step(1, "先拉一頂 A 的帽子",
              '<p>去 <b>輸入</b> 抽屜，拿 <b>「當按鈕 A 被按下」</b>（第 3 課學過）。</p>'
              '<p>放在空白的地方。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True))
+             + mcp(ts_button("A"))
              + look("畫面上多了一頂空空的帽子。")) +
 
         step(2, "找出會發出聲音的積木",
@@ -1226,12 +1252,12 @@ def build_l8():
                     "我們要的是那一區的<b>第一塊</b>。")
              + note("⚠️ 這塊積木上面是<b>英文字</b>",
                     "不用看懂，認得上面有 <b>中音 C</b> 就對了：")
-             + prog(playtone())
+             + mc(tone_ts())
              + note("🚫 別拿錯成這兩塊",
                     "① 旋律區那塊<b>也很長</b>，但上面寫的是 <b>melody</b>，不是我們要的。<br>"
                     "② 下面那塊比較短、寫中文的「演奏 音階」，"
                     "聲音<b>不會停</b>，會一直叫。")
-             + prog(blk("music", "演奏 音階 ", slot("中音 C")))
+             + mc("music.ringTone(262)")
              + look("找到「音高（Tone）」區的第一塊就打勾 ✅")
              + adult("MakeCode 上游改過這塊積木的英文原文，繁體中文翻譯因此失效，"
                      "編輯器只好顯示英文 <code>play tone … until done</code>，我們改不了。<br>"
@@ -1240,21 +1266,19 @@ def build_l8():
 
         step(3, "把它拖進帽子裡",
              '<p>什麼都<b>不用改</b>，直接放進去。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=playtone()))
+             + mcp(ts_button("A", tone_ts()))
              + look("點 A → 「叮」一聲！你的第一個琴鍵完成了 🎵")) +
 
         step(4, "做第二個琴鍵：B",
              '<p>再做一頂 <b>B</b> 的帽子，裡面一樣放那塊<b>長長的英文積木</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=playtone()))
+             + mcp(ts_button("B", tone_ts()))
              + look("點 A 和點 B，聲音<b>一模一樣</b>。下一步來換音 👇")) +
 
         step(5, "把 B 的音換掉",
              '<p>點積木上的 <b>中音 C</b>，選單會打開。</p>'
              '<p><b>一個一個點點看</b>，用<b>耳朵</b>挑一個你喜歡的 👂</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=playtone("你挑的音")))
+             + '<p>下面只是一個<b>例子</b>，你挑的音可以不一樣：</p>'
+             + mcp(ts_button("B", tone_ts("中音 E")))
              + note("👂 不用看懂那些字",
                     "選單上寫「中音 C」「中音 D」那些是<b>音的名字</b>。<br>"
                     "<b>不用管它</b>，點下去聽聽看，好聽就用。")
@@ -1267,16 +1291,14 @@ def build_l8():
         step(6, "做一頂 A+B 的帽子",
              '<p>再拉一頂帽子，把按鈕改成 <b>A+B</b>。</p>'
              '<p>裡面先放<b>一塊</b>，音留 <b>中音 C</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A+B", True), " 被按下", hat=True,
-                        nest_html=playtone()))
+             + mcp(ts_button("AB", tone_ts()))
              + look("兩顆一起按 → 響一聲。")) +
 
         step(7, "再疊四塊，變成一小段曲子",
              '<p>在下面<b>一塊一塊</b>加上去，每一塊都<b>挑一個不一樣的音</b>。</p>'
              '<p>每加一塊就<b>按一次</b>聽聽看，自己排出好聽的順序 🎶</p>'
-             + prog(blk("event", "當按鈕 ", slot("A+B", True), " 被按下", hat=True,
-                        nest_html=playtone("中音 C") + playtone("中音 D") + playtone("中音 E") +
-                                  playtone("中音 F") + playtone("中音 G")))
+             + mcp(ts_button("AB", tone_ts("中音 C"), tone_ts("中音 D"), tone_ts("中音 E"),
+                                  tone_ts("中音 F"), tone_ts("中音 G")))
              + look("兩顆一起按 → <b>五個音一個接一個</b>唱出來 🎶")
              + leds(NOTE, "唱歌囉")
              + adult("一次疊五塊對孩子太多。請他每加一塊就按一次，"
@@ -1284,7 +1306,7 @@ def build_l8():
 
         step(8, "把音變長或變短",
              '<p>點積木上的 <b>1 拍</b>，選單裡改成 <b>1/2 拍</b>。</p>'
-             + prog(playtone("中音 C", "1/2 拍") + playtone("中音 D", "2 拍"))
+             + mc(tone_ts("中音 C", "1/2 拍") + "\n" + tone_ts("中音 D", "2 拍"))
              + tip("⏱️ 「拍」是聲音的長短",
                    "<b>1/2 拍</b>＝短短的，<b>1 拍</b>＝普通，<b>2 拍</b>＝長長的。")
              + look("同樣的音，聽起來變短或變長了。")) +
@@ -1319,80 +1341,63 @@ def build_l9():
 
         step(2, "開機先給牠 5 分心情",
              '<p>把 <b>「變數 happy 設為」</b> 拖進 <b>「當啟動時」</b>，數字改成 <code>5</code>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("happy"), " 設為 ", slot("5"))))
+             + mcp("let happy = 5")
              + look("畫面沒變化，是正常的 👍")) +
 
         step(3, "開機露出笑臉",
              '<p>在下面加一塊「顯示圖示」，選<b>笑臉</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("happy"), " 設為 ", slot("5")) +
-                                  blk("basic", "顯示圖示 ", slot("😀"))))
+             + mcp("let happy = 5\nbasic.showIcon(IconNames.Happy)")
              + look("一開始就笑笑的 😀")) +
 
         step(4, "拉一頂 A 的帽子（餵牠吃東西）",
              '<p>去 <b>輸入</b> 抽屜拿 <b>「當按鈕 A 被按下」</b>，放空白處。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True))
+             + mcp(ts_button("A"))
              + look("多了一頂空帽子。")) +
 
         step(5, "吃東西 → 心情加 1",
              '<p>放一塊 <b>「變數 happy 改變 1」</b> 進帽子裡。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("happy"), " 改變 ", slot("1"))))
+             + mcp(ts_button("A", "happy += 1"))
              + look("點 A 還沒反應。再加兩塊就有了 👇")) +
 
         step(6, "吃東西 → 露出好吃的表情",
-             '<p>加一塊「顯示圖示」，挑一個<b>好吃的表情</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("happy"), " 改變 ", slot("1")) +
-                                  blk("basic", "顯示圖示 ", slot("😋"))))
-             + look("點 A → 換表情了 😋")) +
+             '<p>加一塊「顯示圖示」，挑一張<b>吐舌頭的臉</b>——跟下面積木上的<b>小圖一樣</b>那張。</p>'
+             + mcp(ts_button("A", "happy += 1", "basic.showIcon(IconNames.Silly)"))
+             + look("點 A → 換成吐舌頭的臉 😛")) +
 
         step(7, "吃東西 → 加一聲「叮」",
              '<p>去 <b>音效</b> 抽屜，拿那塊<b>長長的英文積木</b>（第 8 課那塊）。</p>'
              '<p>放在最上面，拍數改成 <b>1/2 拍</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=playtone("中音 C", "1/2 拍") +
-                                  blk("var", "變數 ", slot("happy"), " 改變 ", slot("1")) +
-                                  blk("basic", "顯示圖示 ", slot("😋"))))
-             + look("點 A → 「叮」一聲 ＋ 好吃的表情 😋")) +
+             + mcp(ts_button("A", tone_ts("中音 C", "1/2 拍"), "happy += 1",
+                             "basic.showIcon(IconNames.Silly)"))
+             + look("點 A → 「叮」一聲 ＋ 吐舌頭的臉 😛")) +
 
         step(8, "拉一頂「搖一搖」的帽子（陪牠玩）",
              '<p>拿 <b>「當姿勢 晃動 發生」</b>，放空白處。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True))
+             + mcp(ts_gesture("Shake"))
              + look("現在有<b>三頂</b>帽子了。")) +
 
         step(9, "陪玩 → 加心情、換表情",
-             '<p>裡面放 <b>「變數 happy 改變 1」</b> 和一張<b>很開心的臉</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("var", "變數 ", slot("happy"), " 改變 ", slot("1")) +
-                                  blk("basic", "顯示圖示 ", slot("😆"))))
-             + look("搖一搖 → 開心的表情 😆")) +
+             '<p>裡面放 <b>「變數 happy 改變 1」</b> 和一張<b>戴墨鏡的酷臉</b>——照下面積木上的小圖挑。</p>'
+             + mcp(ts_gesture("Shake", "happy += 1", "basic.showIcon(IconNames.Fabulous)"))
+             + look("搖一搖 → 戴墨鏡的酷臉 😎")) +
 
         step(10, "讓牠會肚子餓：先放「暫停」",
              '<p>用畫面上的 <b>「重複無限次」</b>。</p>'
              '<p>裡面放一塊「暫停」，數字改成 <code>5000</code>（五秒）。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "暫停 ", slot("5000"), " 毫秒")))
+             + mcp(ts_forever("basic.pause(5000)"))
              + look("什麼都沒發生，是正常的 👍")) +
 
         step(11, "每五秒餓一點",
              '<p>下面加 <b>「變數 happy 改變」</b>，數字打 <code>-1</code>。</p>'
              + note("➖ 「改變 -1」是什麼", "就是<b>減 1</b>。前面加一個減號就好。")
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "暫停 ", slot("5000"), " 毫秒") +
-                                  blk("var", "變數 ", slot("happy"), " 改變 ", slot("-1"))))
+             + mcp(ts_forever("basic.pause(5000)", "happy += -1"))
              + look("表情還沒變，因為還沒叫它看心情。最後一步 👇")) +
 
         step(12, "心情低就變難過",
              '<p>下面加一塊 <b>「如果…那麼…否則」</b>。</p>'
              '<p>條件是 <b>happy &gt; 3</b>：<b>那麼</b> 放笑臉，<b>否則</b> 放哭臉。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "暫停 ", slot("5000"), " 毫秒") +
-                                  blk("var", "變數 ", slot("happy"), " 改變 ", slot("-1")) +
-                                  ifelse(slot("happy") + ' &gt; ' + slot("3"),
-                                         blk("basic", "顯示圖示 ", slot("😀")),
-                                         blk("basic", "顯示圖示 ", slot("😢")))))
+             + mcp(ts_forever("basic.pause(5000)", "happy += -1",
+                             ts_if("happy > 3", ("basic.showIcon(IconNames.Happy)",), ("basic.showIcon(IconNames.Sad)",))))
              + look("放著不管 → 牠會變<b>難過</b> 😢。餵牠或搖牠 → 又<b>開心</b> 😀")
              + leds(SMILE, "有照顧") + leds(SAD, "太久沒理")
              + adult("這一課的重點不是新積木，是<b>四塊帽子同時在跑</b>："
@@ -1437,8 +1442,7 @@ def build_l10():
              find("radio", "廣播群組設為 1")
              + note("⚠️ 抽屜叫「廣播」，不是「無線電」", "粉紅色的那個抽屜。")
              + '<p>拖進 <b>「當啟動時」</b> 裡面，數字保持 <code>1</code>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("radio", "廣播群組設為 ", slot("1"))))
+             + mcp("radio.setGroup(1)")
              + tip("🔑 暗號是什麼",
                    "只有<b>同一個號碼</b>的 micro:bit 聽得到彼此。"
                    "想跟朋友玩不被別人吵，就約好一個祕密號碼。")
@@ -1446,40 +1450,36 @@ def build_l10():
 
         step(2, "拉一頂 A 的帽子",
              '<p>去 <b>輸入</b> 抽屜拿 <b>「當按鈕 A 被按下」</b>，放空白處。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True))
+             + mcp(ts_button("A"))
              + look("多了一頂空帽子。")) +
 
         step(3, "按 A 就喊一聲",
              find("radio", "廣播發送數字 0")
              + '<p>放進帽子裡，把 <code>0</code> 改成 <code>7</code>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("radio", "廣播發送數字 ", slot("7"))))
+             + mcp(ts_button("A", "radio.sendNumber(7)"))
              + look("點 A 還沒反應——因為<b>還沒人在聽</b>。下一步 👇")) +
 
         step(4, "拉一頂「聽到了」的帽子",
              find("radio", "當收到廣播數字 receivedNumber", "（這是一頂<b>帽子</b>）")
              + '<p>拖到空白的地方，<b>什麼都不用改</b>。</p>'
-             + prog(blk("radio", "當收到廣播數字 ", slot("receivedNumber", True), hat=True))
+             + mcp(ts_radio_number())
              + look("多了一頂粉紅色的帽子。")) +
 
         step(5, "聽到就跳出愛心",
              '<p>裡面放一塊「顯示圖示」，選<b>愛心</b>。</p>'
-             + prog(blk("radio", "當收到廣播數字 ", slot("receivedNumber", True), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("❤️"))))
+             + mcp(ts_radio_number("basic.showIcon(IconNames.Heart)"))
              + look("在<b>其中一台</b>點 A → <b>另一台</b>跳出愛心 ❤️ 隔空傳情 💌")
              + leds(HEART, "收到訊息")) +
 
         step(6, "再加一聲「叮」",
              '<p>愛心下面加一塊<b>長長的英文音效積木</b>（第 8 課那塊）。</p>'
-             + prog(blk("radio", "當收到廣播數字 ", slot("receivedNumber", True), hat=True,
-                        nest_html=blk("basic", "顯示圖示 ", slot("❤️")) +
-                                  playtone("中音 C")))
+             + mcp(ts_radio_number("basic.showIcon(IconNames.Heart)", tone_ts()))
              + look("收到訊息 → 愛心 ＋ 「叮」一聲 🔔")
              + adult("兩台都要下載<b>同一個程式</b>，因為每一台都同時是「喊的人」和「聽的人」。<br>"
                      "孩子常問「為什麼自己按 A 自己沒反應」——因為喊的那台只負責喊，"
                      "接收的帽子是給<b>對方</b>觸發的。")) +
 
-        tryit("用<b>不同數字</b>代表不同意思：收到 1 顯示笑臉、收到 2 顯示星星（用「如果／否則」）。",
+        tryit("用<b>不同數字</b>代表不同意思：收到 1 顯示笑臉、收到 2 用「顯示指示燈」畫星星（用「如果／否則」）。",
               "有兩塊真板子的話，兩台都<b>下載同一個程式</b>，就能互相傳訊息了 📡") +
 
         final("l10", [
@@ -1502,8 +1502,7 @@ def build_l11():
         + step(1, "先點亮正中間那一顆",
                find("led", "點亮 x 0 y 0")
                + '<p>拖進「當啟動時」，兩個數字都改成 <code>2</code>。</p>'
-               + prog(blk("basic", slot("當啟動時"), hat=True,
-                          nest_html=blk("led", "點亮 x ", slot("2"), " y ", slot("2"))))
+               + mcp("led.plot(2, 2)")
                + look("<b>正中央</b>那一顆燈亮起來。")
                + leds(CENTER, "x=2, y=2 → 正中央")) +
 
@@ -1516,51 +1515,33 @@ def build_l11():
         step(3, "開機時先設定好",
              '<p>在 <b>「當啟動時」</b> 裡放兩塊「設為」：<code>x</code> 設為 <code>0</code>、'
              '<code>dir</code> 設為 <code>1</code>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("x"), " 設為 ", slot("0")) +
-                                  blk("var", "變數 ", slot("dir"), " 設為 ", slot("1"))))
+             + mcp("let x = 0\nlet dir = 1")
              + look("畫面沒變化，是正常的 👍")) +
 
         step(4, "讓燈畫出來、再擦掉",
              '<p>在 <b>「重複無限次」</b> 裡放兩塊：先 <b>「清空畫面」</b>，'
              '再 <b>「點亮 x y」</b>。</p>'
              '<p>x 的框框塞圓圓的 <code>x</code>，y 打 <code>2</code>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "清空畫面") +
-                                  blk("led", "點亮 x ", slot("x"), " y ", slot("2"))))
+             + mcp(ts_forever("basic.clearScreen()", "led.plot(x, 2)"))
              + look("最<b>左邊</b>中間那顆燈亮著，還不會動。")) +
 
         step(5, "讓它動起來",
              '<p>下面再加兩塊：<b>「暫停 200 毫秒」</b>，'
              '然後 <b>「變數 x 改變」</b>，框框裡塞圓圓的 <code>dir</code>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "清空畫面") +
-                                  blk("led", "點亮 x ", slot("x"), " y ", slot("2")) +
-                                  blk("basic", "暫停 ", slot("200"), " 毫秒") +
-                                  blk("var", "變數 ", slot("x"), " 改變 ", slot("dir"))))
+             + mcp(ts_forever("basic.clearScreen()", "led.plot(x, 2)", "basic.pause(200)", "x += dir"))
              + look("燈往右邊跑⋯⋯然後<b>跑出畫面不見了</b> 😅 下一步修好它 👇")) +
 
         step(6, "跑到最右邊就轉頭",
              '<p>加一塊 <b>「如果…那麼」</b>——這次用<b>沒有</b>「否則」的那塊。</p>'
              '<p>條件 <b>x &gt; 3</b>，裡面放 <b>「變數 dir 設為 -1」</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("var", "變數 ", slot("x"), " 改變 ", slot("dir")) +
-                                  ifelse(slot("x") + ' &gt; ' + slot("3"),
-                                         blk("var", "變數 ", slot("dir"), " 設為 ", slot("-1")))))
+             + mcp(ts_forever("x += dir", ts_if("x > 3", ("dir = -1",))))
              + look("燈跑到右邊會<b>轉頭往回跑</b>，但跑到左邊又不見了。")) +
 
         step(7, "跑到最左邊也轉頭",
              '<p>再加一塊一樣的，條件改成 <b>x &lt; 1</b>，裡面放 '
              '<b>「變數 dir 設為 1」</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "清空畫面") +
-                                  blk("led", "點亮 x ", slot("x"), " y ", slot("2")) +
-                                  blk("basic", "暫停 ", slot("200"), " 毫秒") +
-                                  blk("var", "變數 ", slot("x"), " 改變 ", slot("dir")) +
-                                  ifelse(slot("x") + ' &gt; ' + slot("3"),
-                                         blk("var", "變數 ", slot("dir"), " 設為 ", slot("-1"))) +
-                                  ifelse(slot("x") + ' &lt; ' + slot("1"),
-                                         blk("var", "變數 ", slot("dir"), " 設為 ", slot("1")))))
+             + mcp(ts_forever("basic.clearScreen()", "led.plot(x, 2)", "basic.pause(200)", "x += dir",
+                             ts_if("x > 3", ("dir = -1",)), ts_if("x < 1", ("dir = 1",))))
              + look("燈像乒乓球一樣<b>左右彈來彈去</b> 🏓")
              + adult("這是這套教材最難的一步。<code>dir</code> 存的是「方向」，"
                      "碰到邊就把方向反過來——這個想法比積木本身難。<br>"
@@ -1570,20 +1551,14 @@ def build_l11():
         step(8, "拉一頂 A 的帽子，加上判斷",
              '<p>做一頂 <b>A</b> 的帽子，裡面放 <b>有「否則」</b> 的那塊。</p>'
              '<p>條件是 <b>x = 2</b>（正中間）。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=ifelse(slot("x") + ' = ' + slot("2"),
-                                         '<div class="plainrow">（等一下放）</div>',
-                                         '<div class="plainrow">（等一下放）</div>')))
+             + mcp(ts_button("A", ts_if("x == 2", (), ())))
              + look("架子好了，兩條路還空著。")) +
 
         step(9, "贏了笑臉，輸了哭臉",
              '<p><b>那麼</b> 放<b>笑臉</b> ＋ 一個<b>音</b>（音效抽屜那塊長長的英文積木）。</p>'
              '<p><b>否則</b> 放<b>哭臉</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=ifelse(slot("x") + ' = ' + slot("2"),
-                                         blk("basic", "顯示圖示 ", slot("😀")) +
-                                         playtone("中音 G"),
-                                         blk("basic", "顯示圖示 ", slot("😢")))))
+             + mcp(ts_button("A", ts_if("x == 2", ("basic.showIcon(IconNames.Happy)", tone_ts("中音 G")),
+                                               ("basic.showIcon(IconNames.Sad)",))))
              + look("燈跑到正中間<b>那一瞬間</b>按 A → 笑臉＋歡呼 🎉 按錯 → 哭臉 😢")) +
 
         tryit("把「暫停 <code>200</code>」改小，燈跑更快、更難抓。",
@@ -1600,9 +1575,7 @@ def build_l11():
 # ================= 第 12 課（最終關）=================
 def build_l12():
     def touch(pin, n, num):
-        return blk("event", "當引腳 ", slot(pin, True), " 被按下", hat=True,
-                   nest_html=playtone(n, "1/2 拍") +
-                             blk("basic", "顯示數字 ", slot(num)))
+        return mcp(ts_pin(pin, tone_ts(n, "1/2 拍"), f"basic.showNumber({num})"))
     body = (
         top("l12", "第 12 課 · 最終關", "🍌 觸摸香蕉鋼琴") +
         goal("🎹", "用<b>香蕉</b>當琴鍵！手一碰就發出聲音 🍌🎵") +
@@ -1614,24 +1587,24 @@ def build_l12():
                find("event", "當引腳 P0 被按下", "（在<b>輸入</b>抽屜裡）")
                + note("⚠️ 積木上寫「被<b>按下</b>」", "不是「被觸碰」，別找錯了。")
                + '<p>拖到空白的地方。</p>'
-               + prog(blk("event", "當引腳 ", slot("P0", True), " 被按下", hat=True))
+               + mcp(ts_pin("P0"))
                + look("多了一頂帽子，上面寫著 <b>P0</b>。")) +
 
         step(2, "第一個琴鍵：放一個音",
              '<p>裡面放<b>音效抽屜那塊長長的英文積木</b>，拍數改 <b>1/2 拍</b>。</p>'
              '<p>再放一塊「顯示數字」，打 <code>1</code>。</p>'
-             + prog(touch("P0", "中音 C", "1"))
+             + touch("P0", "中音 C", "1")
              + look("在假的那台上，<b>點一下 P0 那個金色的孔</b> → 響一聲 🎵")) +
 
         step(3, "第二個琴鍵：P1",
              '<p>再拖一頂一樣的帽子，點 <b>P0</b> 的選單改成 <b>P1</b>。</p>'
              '<p>裡面的音改成 <b>中音 E</b>，數字打 <code>3</code>。</p>'
-             + prog(touch("P1", "中音 E", "3"))
+             + touch("P1", "中音 E", "3")
              + look("點 P1 那個孔 → <b>不一樣</b>的音 🎵")) +
 
         step(4, "第三個琴鍵：P2",
              '<p>做法一樣，選單改 <b>P2</b>，音改 <b>中音 G</b>，數字打 <code>5</code>。</p>'
-             + prog(touch("P2", "中音 G", "5"))
+             + touch("P2", "中音 G", "5")
              + look("三個孔各一個音——三個琴鍵完成 🎹")
              + leds(NOTE, "碰一下就唱歌")) +
 
@@ -1761,7 +1734,7 @@ def uses_section(gid):
             continue
         seen.add(bid)
         b = _block_by_id(bid)
-        cards.append(f'<div class="ucard">{render_block(b)}<p>{esc(b["desc"])}</p></div>')
+        cards.append(f'<div class="ucard">{render_dex_block(b)}<p>{esc(b["desc"])}</p></div>')
     return ('<h2>🧱 這個遊戲用到的積木</h2>'
             f'<p class="lead" style="margin-top:0">一共 <b>{len(seen)}</b> 塊。'
             '看不懂哪一塊，就回 <a href="blocks.html">積木圖鑑</a> 翻一翻。</p>'
@@ -1799,7 +1772,7 @@ def build_games_hub():
 
     miss_html = ''
     if missing:
-        items = "".join(f'<div class="ucard">{render_block(b)}<p>{esc(b["desc"])}</p></div>'
+        items = "".join(f'<div class="ucard">{render_dex_block(b)}<p>{esc(b["desc"])}</p></div>'
                         for b in missing)
         miss_html = ('<h2>🕳️ 這些遊戲沒用到的積木</h2>'
                      f'<p class="lead" style="margin-top:0">還有 <b>{len(missing)}</b> 塊沒派上用場。'
@@ -1854,8 +1827,6 @@ def build_games_hub():
 
 # ---- ✌️ 猜拳機（入門：不用變數、不用座標、不用音名）----
 def build_e1():
-    rand3 = blk("math", "隨機取數 ", slot("0"), " 到 ", slot("2"))
-    rand2 = blk("math", "隨機取數 ", slot("0"), " 到 ", slot("1"))
 
     body = (
         game_top("e1", "入門遊戲 · 第一個", "✌️ 猜拳機") +
@@ -1869,22 +1840,21 @@ def build_e1():
         + step(1, "拉一頂「搖一搖」的帽子",
                find("event", "當姿勢 晃動 發生")
                + '<p>拖到空白的地方，<b>什麼都不用改</b>。</p>'
-               + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True))
+               + mcp(ts_gesture("Shake"))
                + look("畫面多了一頂紫紅色的帽子。")) +
 
         step(2, "先畫一個石頭",
              find("basic", "顯示指示燈", "（在<b>基本</b>抽屜，藍色的）")
              + '<p>拖進帽子裡，照下面這樣點格子：</p>'
              + leds(ROCK, "石頭 ✊")
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示指示燈 ", slot("✊ 石頭"))))
+             + mcp(ts_gesture("Shake", leds_ts(ROCK)))
              + look("<b>搖一搖</b>（假的那台按 SHAKE）→ 出現石頭 ✊")) +
 
         step(3, "拿出抽籤積木",
              find("math", "隨機取數 0 到 10")
              + '<p>先拖到<b>空白的地方</b>放著。</p>'
              '<p>把 <code>10</code> 改成 <code>2</code>——這樣它會抽出 <b>0、1、2</b> 三個數字之一。</p>'
-             + prog(rand3)
+             + mc("randint(0, 2)")
              + look("積木上寫著「隨機取數 <b>0</b> 到 <b>2</b>」。")) +
 
         step(4, "問它「抽到 0 嗎？」",
@@ -1892,17 +1862,13 @@ def build_e1():
              + '<p>拖進帽子裡。條件用 <b>邏輯</b> 抽屜的 <b class="bname">=</b>，'
              '左邊塞<b>抽籤積木</b>、右邊打 <code>0</code>。</p>'
              '<p>再把<b>石頭</b>那塊搬進 <b>那麼</b> 裡面。</p>'
-             + prog(ifelse(rand3 + ' = ' + slot("0"),
-                           blk("basic", "顯示指示燈 ", slot("✊ 石頭")),
-                           '<div class="plainrow">（等一下放）</div>'))
+             + mc(ts_if("randint(0, 2) == 0", (leds_ts(ROCK),), ()))
              + look("搖一搖：<b>有時候</b>出石頭，有時候<b>什麼都沒有</b>。快好了 👇")) +
 
         step(5, "在「否則」裡再問一次",
              '<p>再拖<b>一塊</b>「如果…那麼…否則」，放進 <b>否則</b> 裡面。</p>'
              '<p>條件是<b>另一塊</b>抽籤積木（這次改成 <b>0 到 1</b>）<b class="bname">=</b> <code>0</code>。</p>'
-             + prog(ifelse(rand2 + ' = ' + slot("0"),
-                           '<div class="plainrow">（等一下放剪刀）</div>',
-                           '<div class="plainrow">（等一下放布）</div>'))
+             + mc(ts_if("randint(0, 1) == 0", (), ()))
              + look("架子搭好了，兩格還空空的。")
              + adult("為什麼要<b>再抽一次</b>、而且範圍是 0 到 1：<br>"
                      "第一次抽 0～2，抽中 0 的機率是 <b>1/3</b> → 石頭。<br>"
@@ -1914,18 +1880,14 @@ def build_e1():
         step(6, "畫剪刀",
              '<p>拖一塊「顯示指示燈」放進<b>那麼</b>，照這樣點：</p>'
              + leds(SCISS, "剪刀 ✌️")
-             + prog(blk("basic", "顯示指示燈 ", slot("✌️ 剪刀")))
+             + mc(leds_ts(SCISS))
              + look("搖一搖：石頭跟剪刀<b>輪流</b>出現了。最後一張 👇")) +
 
         step(7, "畫布",
              '<p>再拖一塊放進<b>否則</b>，這次<b>整片點滿</b>：</p>'
              + leds(PAPER, "布 🖐️")
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=ifelse(rand3 + ' = ' + slot("0"),
-                                         blk("basic", "顯示指示燈 ", slot("✊ 石頭")),
-                                         ifelse(rand2 + ' = ' + slot("0"),
-                                                blk("basic", "顯示指示燈 ", slot("✌️ 剪刀")),
-                                                blk("basic", "顯示指示燈 ", slot("🖐️ 布"))))))
+             + mcp(ts_gesture("Shake", ts_if("randint(0, 2) == 0", (leds_ts(ROCK),),
+                                           (ts_if("randint(0, 1) == 0", (leds_ts(SCISS),), (leds_ts(PAPER),)),))))
              + look("<b>可以玩了！</b> 搖一搖 → 石頭、剪刀、布<b>隨機出一個</b> ✌️")
              + adult("到這裡就是一個完整的遊戲了，可以先讓他跟你猜個十盤。<br>"
                      "他很可能會發現「怎麼一直出布」——那正好，"
@@ -1936,15 +1898,14 @@ def build_e1():
         + step(8, "加料 ①：出拳前先「預備」",
                '<p>在「如果」的<b>上面</b>加兩塊：<b>顯示圖示</b>（挑一個你喜歡的）'
                '和 <b>暫停 500 毫秒</b>。</p>'
-               + prog(blk("basic", "顯示圖示 ", slot("👀")) +
-                      blk("basic", "暫停 ", slot("500"), " 毫秒"))
+               + mc("basic.showIcon(IconNames.Surprised)\nbasic.pause(500)")
                + look("搖一搖 → 先閃一下，<b>才</b>出拳，比較有儀式感 🥁")
                + '<p class="usedhint">這一關多用到：<b>顯示圖示</b>、<b>暫停</b></p>') +
 
         step(9, "加料 ②：出拳的時候「叮」一聲",
              '<p>去 <b>音效</b> 抽屜，拿那塊<b>長長的英文積木</b>（第 8 課那塊）。</p>'
              '<p>放在「顯示圖示」的下面，<b>什麼都不用改</b>。</p>'
-             + prog(playtone())
+             + mc(tone_ts())
              + look("出拳前會「叮」一聲 🔔")
              + adult("這裡刻意不改音名——用預設的就好。"
                      "想換音的話，第 8 課教過：點選單用耳朵挑。")
@@ -1952,8 +1913,7 @@ def build_e1():
 
         step(10, "加料 ③：過幾秒自己擦掉",
              '<p>在帽子的<b>最下面</b>加 <b>暫停 3000 毫秒</b> 和 <b>清空畫面</b>。</p>'
-             + prog(blk("basic", "暫停 ", slot("3000"), " 毫秒") +
-                    blk("basic", "清空畫面"))
+             + mc("basic.pause(3000)\nbasic.clearScreen()")
              + look("出拳三秒後畫面<b>自己清乾淨</b>，準備下一局 🔄")
              + '<p class="usedhint">這一關多用到：<b>清空畫面</b></p>') +
 
@@ -1963,10 +1923,9 @@ def build_e1():
                   "覺得難就<b>直接跳過</b>——前面十步已經是一個完整的遊戲了 👍")
              + '<p>建立一個盒子叫 <code>n</code>，在 <b>「當啟動時」</b> 裡設為 <code>0</code>。</p>'
              '<p>帽子最上面加 <b>「變數 n 改變 1」</b>，最下面加 <b>「顯示數字 n」</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("n"), " 設為 ", slot("0"))) +
-                    blk("var", "變數 ", slot("n"), " 改變 ", slot("1")) +
-                    blk("basic", "顯示數字 ", slot("n")))
+             + mcp("let n = 0")
+             + '<p>帽子<b>最上面</b>：</p>' + mc("n += 1")
+             + '<p>帽子<b>最下面</b>：</p>' + mc("basic.showNumber(n)")
              + look("每搖一次，數字就<b>多 1</b> 🔢")
              + '<p class="usedhint">這一關多用到：<b>變數</b>、<b>顯示數字</b></p>') +
 
@@ -1985,9 +1944,6 @@ def build_e1():
 
 # ---- ⚡ 反應王（入門：不用變數、不用座標、不用音名）----
 def build_e2():
-    rand2 = blk("math", "隨機取數 ", slot("0"), " 到 ", slot("1"))
-    yes_i = blk("basic", "顯示圖示 ", slot("✓ 打勾"))
-    no_i = blk("basic", "顯示圖示 ", slot("✗ 打叉"))
 
     body = (
         game_top("e2", "入門遊戲 · 第二個", "⚡ 反應王") +
@@ -2002,43 +1958,39 @@ def build_e2():
 
         + step(1, "開機先說「GO」",
                '<p><b>「當啟動時」</b> 裡放一塊 <b>「顯示文字」</b>，打上 <code>GO</code>。</p>'
-               + prog(blk("basic", slot("當啟動時"), hat=True,
-                          nest_html=blk("basic", "顯示文字 ", slot("GO"))))
+               + mcp('basic.showString("GO")')
                + look("開機時 <b>GO</b> 跑過畫面 🏁")) +
 
         step(2, "找到綠色的「重複無限次」",
              '<p>它<b>一開始就在畫面上</b>了，不用去抽屜找。</p>'
-             + prog(blk("loop", "重複無限次", hat=True))
+             + mcp(ts_forever())
              + look("找到那塊綠色的就打勾 ✅")) +
 
         step(3, "拿出抽籤積木",
              find("math", "隨機取數 0 到 10")
              + '<p>先放在空白處，把 <code>10</code> 改成 <code>1</code>。</p>'
              '<p>這樣它只會抽出 <b>0</b> 或 <b>1</b>——剛好一邊一個。</p>'
-             + prog(rand2)
+             + mc("randint(0, 1)")
              + look("積木上寫著「隨機取數 <b>0</b> 到 <b>1</b>」。")) +
 
         step(4, "決定燈要出現在哪一邊",
              find("logic", "如果 … 那麼 … 否則", "（要有<b>「否則」</b>的那塊）")
              + '<p>拖進「重複無限次」裡面。</p>'
              '<p>條件用 <b class="bname">=</b>：左邊塞<b>抽籤積木</b>、右邊打 <code>0</code>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=ifelse(rand2 + ' = ' + slot("0"),
-                                         '<div class="plainrow">抽到 0 → 左邊</div>',
-                                         '<div class="plainrow">抽到 1 → 右邊</div>')))
+             + '<p>抽到 <b>0</b> 走「那麼」→ 左邊；抽到 <b>1</b> 走「否則」→ 右邊。</p>'
+             + mcp(ts_forever(ts_if("randint(0, 1) == 0", (), ())))
              + look("架子搭好了，兩邊都還空空的。")) +
 
         step(5, "左邊亮起來",
              find("basic", "顯示指示燈")
              + '<p>放進 <b>那麼</b> 裡面，把<b>左邊兩排</b>點亮：</p>'
              + leds(LEFT, "左邊 ⬅️")
-             + prog(blk("basic", "顯示指示燈 ", slot("⬅️ 左邊")))
+             + mc(leds_ts(LEFT))
              + look("燈<b>一直</b>在左邊閃，快到看不清楚。下一步修好 👇")) +
 
         step(6, "讓它停久一點",
              '<p>在「顯示指示燈」的下面加 <b>「暫停 800 毫秒」</b>。</p>'
-             + prog(blk("basic", "顯示指示燈 ", slot("⬅️ 左邊")) +
-                    blk("basic", "暫停 ", slot("800"), " 毫秒"))
+             + mc(leds_ts(LEFT) + "\nbasic.pause(800)")
              + look("燈<b>停一下</b>才換，看得清楚了 👀")) +
 
         step(7, "認識新積木：「按鈕 A 被按下？」",
@@ -2047,7 +1999,7 @@ def build_e2():
                     "<b>「當按鈕 A 被按下」</b>是<b>帽子</b>，你一按它就跳出來做事。<br>"
                     "<b>「按鈕 A 被按下？」</b>是<b>問句</b>，它只回答「<b>現在</b>有沒有在按」。")
              + '<p>先拖到空白處，下一步要用。</p>'
-             + prog(blk("event", "按鈕 ", slot("A", True), " 被按下？"))
+             + mc("input.buttonIsPressed(Button.A)")
              + look("認得這塊就打勾 ✅")) +
 
         step(8, "按對了打勾，沒按到打叉",
@@ -2057,18 +2009,14 @@ def build_e2():
              + note("🔍 圖案在選單的哪裡",
                     "打勾那個選單上寫 <code>yes</code>，打叉寫 <code>no</code>。<br>"
                     "看圖挑就好，<b>不用管英文</b>。")
-             + prog(ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？"),
-                           yes_i, no_i))
+             + mc(ts_if("input.buttonIsPressed(Button.A)", ("basic.showIcon(IconNames.Yes)",), ("basic.showIcon(IconNames.No)",)))
              + look("燈在左邊時<b>按住 A</b> → 打勾 ✓ 沒按 → 打叉 ✗")) +
 
         step(9, "右邊照做一次",
              '<p><b>否則</b> 那一格做<b>一模一樣</b>的事，只是：</p>'
              '<p>圖案畫<b>右邊兩排</b>、按鈕改成 <b>B</b>。</p>'
              + leds(RIGHT, "右邊 ➡️")
-             + prog(blk("basic", "顯示指示燈 ", slot("➡️ 右邊")) +
-                    blk("basic", "暫停 ", slot("800"), " 毫秒") +
-                    ifelse(blk("event", "按鈕 ", slot("B", True), " 被按下？"),
-                           yes_i, no_i))
+             + mc(leds_ts(RIGHT) + "\nbasic.pause(800)\n" + ts_if("input.buttonIsPressed(Button.B)", ("basic.showIcon(IconNames.Yes)",), ("basic.showIcon(IconNames.No)",)))
              + look("燈<b>左右隨機</b>出現，按對的那顆就打勾 ⚡")
              + adult("這一格是把上面三步<b>照抄一遍</b>。<br>"
                      "在 MakeCode 裡可以在積木上<b>按右鍵 → 複製</b>，"
@@ -2077,12 +2025,10 @@ def build_e2():
         step(10, "打完勾就擦掉，準備下一輪",
              '<p>在「重複無限次」的<b>最下面</b>（兩個分支的外面）加：'
              '<b>暫停 600 毫秒</b> 和 <b>清空畫面</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=ifelse(rand2 + ' = ' + slot("0"),
-                                         '<div class="plainrow">左邊那一整段</div>',
-                                         '<div class="plainrow">右邊那一整段</div>') +
-                                  blk("basic", "暫停 ", slot("600"), " 毫秒") +
-                                  blk("basic", "清空畫面")))
+             + mcp(ts_forever(ts_if("randint(0, 1) == 0",
+                                   (leds_ts(LEFT), "basic.pause(800)", ts_if("input.buttonIsPressed(Button.A)", ("basic.showIcon(IconNames.Yes)",), ("basic.showIcon(IconNames.No)",))),
+                                   (leds_ts(RIGHT), "basic.pause(800)", ts_if("input.buttonIsPressed(Button.B)", ("basic.showIcon(IconNames.Yes)",), ("basic.showIcon(IconNames.No)",)))),
+                             "basic.pause(600)", "basic.clearScreen()"))
              + look("<b>可以玩了！</b> 打勾閃一下就換下一題 ⚡")
              + adult("到這裡就是完整的遊戲了。<br>"
                      "如果他老是打叉，把 <code>800</code> 調大一點（例如 1500），"
@@ -2093,23 +2039,20 @@ def build_e2():
         + step(11, "加料 ①：出現時間不固定，比較刺激",
                '<p>把最後那塊 <b>「暫停 600」</b> 的數字，換成一塊'
                '<b>抽籤積木</b>，範圍改成 <b>300 到 1500</b>。</p>'
-               + prog(blk("basic", "暫停 ",
-                          blk("math", "隨機取數 ", slot("300"), " 到 ", slot("1500")),
-                          " 毫秒"))
+               + mc("basic.pause(randint(300, 1500))")
                + look("下一題<b>什麼時候來不知道</b>，更緊張了 😆")
                + '<p class="usedhint">這一關多用到：<b>隨機取數</b>（放進別的積木裡）</p>') +
 
         step(12, "加料 ②：打勾配一聲「叮」",
              '<p>在<b>打勾</b>的圖下面，加一塊<b>音效抽屜那塊長長的英文積木</b>。</p>'
              '<p>音<b>不用改</b>。</p>'
-             + prog(yes_i + playtone())
+             + mc("basic.showIcon(IconNames.Yes)" + "\n" + tone_ts())
              + look("按對就「叮」🔔 按錯沒聲音，手感差很多")
              + '<p class="usedhint">這一關多用到：<b>play tone</b></p>') +
 
         step(13, "加料 ③：搖一搖重新開始",
              '<p>拉一頂 <b>「當姿勢 晃動 發生」</b>，裡面放 <b>「顯示文字 GO」</b>。</p>'
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示文字 ", slot("GO"))))
+             + mcp(ts_gesture("Shake", 'basic.showString("GO")'))
              + look("搖一搖 → 跑出 <b>GO</b>，重新來過 🔄")
              + '<p class="usedhint">這一關多用到：<b>當姿勢 晃動 發生</b></p>') +
 
@@ -2120,11 +2063,8 @@ def build_e2():
              + '<p>建立一個盒子叫 <code>score</code>，在 <b>「當啟動時」</b> 裡設為 <code>0</code>。</p>'
              '<p><b>兩個</b>「打勾」的下面都加 <b>「變數 score 改變 1」</b>。</p>'
              '<p>再把「搖一搖」那頂帽子裡加一塊 <b>「顯示數字 score」</b>。</p>'
-             + prog(yes_i + blk("var", "變數 ", slot("score"), " 改變 ", slot("1")))
-             + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                        nest_html=blk("basic", "顯示數字 ", slot("score")) +
-                                  blk("var", "變數 ", slot("score"), " 設為 ", slot("0")) +
-                                  blk("basic", "顯示文字 ", slot("GO"))))
+             + mc("basic.showIcon(IconNames.Yes)" + "\nscore += 1")
+             + mcp(ts_gesture("Shake", "basic.showNumber(score)", "score = 0", 'basic.showString("GO")'))
              + look("搖一搖 → 先看到<b>這局幾分</b>，再重新開始 🏆")
              + adult("這是變數第一次真的「有用」：不記下來就看不到分數。<br>"
                      "動機出來了再教概念，比第 4 課乾講「盒子」好吸收。")
@@ -2145,8 +2085,6 @@ def build_e2():
 
 # ---- ⭐ 接星星 ----
 def build_g1():
-    star = blk("led", "點亮 x ", slot("sx"), " y ", slot("sy"))
-    me = blk("led", "點亮 x ", slot("px"), " y ", slot("4"))
 
     body = (
         game_top("g1", "101 遊戲 · 第一個", "⭐ 接星星") +
@@ -2165,41 +2103,33 @@ def build_g1():
 
         step(2, "開機時站在正中間",
              '<p><b>「當啟動時」</b> 裡放 <b>「變數 px 設為 2」</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("px"), " 設為 ", slot("2"))))
+             + mcp("let px = 2")
              + look("畫面沒變化，是正常的 👍")) +
 
         step(3, "把你畫出來",
              '<p><b>「重複無限次」</b> 裡放兩塊：先 <b>「清空畫面」</b>，'
              '再 <b>「點亮 x y」</b>。</p>'
              '<p>x 的框框塞圓圓的 <code>px</code>，y 打 <code>4</code>（最下面那排）。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "清空畫面") + me))
+             + mcp(ts_forever("basic.clearScreen()", "led.plot(px, 4)"))
              + look("<b>最下面</b>中間有一顆燈亮著，就是你 🔆")
              + leds("....." "\n" "....." "\n" "....." "\n" "....." "\n" "..#..", "這就是你")) +
 
         step(4, "按 A 往左走",
              '<p>拉一頂 <b>「當按鈕 A 被按下」</b>，裡面放 '
              '<b>「變數 px 改變 -1」</b>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("-1"))))
+             + mcp(ts_button("A", "px += -1"))
              + look("點 A → 那顆燈往<b>左</b>移一格 ⬅️")) +
 
         step(5, "按 B 往右走",
              '<p>做法一樣，按鈕改成 <b>B</b>，數字改成 <code>1</code>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("1"))))
+             + mcp(ts_button("B", "px += 1"))
              + look("A 往左、B 往右。但一直按會<b>跑出畫面</b> 😅 下一步修好 👇")) +
 
         step(6, "別讓自己跑出去",
              '<p>在 <b>「重複無限次」</b> 的<b>最上面</b>加兩塊 <b>「如果…那麼」</b>'
              '（<b>沒有</b>「否則」的那塊）。</p>'
              + find("logic", "<", "（第二塊要點選單改成 <b>&gt;</b>）")
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=ifelse(slot("px") + ' &lt; ' + slot("0"),
-                                         blk("var", "變數 ", slot("px"), " 設為 ", slot("0"))) +
-                                  ifelse(slot("px") + ' &gt; ' + slot("4"),
-                                         blk("var", "變數 ", slot("px"), " 設為 ", slot("4")))))
+             + mcp(ts_forever(ts_if("px < 0", ("px = 0",)), ts_if("px > 4", ("px = 4",))))
              + look("走到<b>邊邊就停住</b>，不會再不見了 ✋")
              + adult("<code>&lt;</code> 和 <code>&gt;</code> 是<b>同一塊</b>積木，"
                      "點積木上的符號用選單換。孩子常以為要找兩塊不同的。")) +
@@ -2209,29 +2139,19 @@ def build_g1():
              '<code>sy</code>（星星掉到第幾排）。</p>'
              '<p>在 <b>「當啟動時」</b> 裡設定：<code>sy</code> 設為 <code>0</code>，'
              '<code>sx</code> 設為 <b>隨機取數 0 到 4</b>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("var", "變數 ", slot("px"), " 設為 ", slot("2")) +
-                                  blk("var", "變數 ", slot("sy"), " 設為 ", slot("0")) +
-                                  blk("var", "變數 ", slot("sx"), " 設為 ",
-                                      blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4")))))
+             + mcp("let px = 2\nlet sy = 0\nlet sx = randint(0, 4)")
              + look("還是只看得到你自己。下一步星星才會出現 👇")) +
 
         step(8, "把星星畫出來，讓它掉下來",
              '<p>在「重複無限次」裡，<b>你的下面</b>再加三塊：</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=me + star +
-                                  blk("basic", "暫停 ", slot("400"), " 毫秒") +
-                                  blk("var", "變數 ", slot("sy"), " 改變 ", slot("1"))))
+             + mcp(ts_forever("led.plot(px, 4)", "led.plot(sx, sy)", "basic.pause(400)", "sy += 1"))
              + look("星星從<b>最上面</b>一格一格<b>往下掉</b> ⭐ 掉出去就不見了。")) +
 
         step(9, "接到了嗎？",
              '<p>在「sy 改變 1」的<b>下面</b>加一塊 <b>「如果…那麼」</b>，'
              '條件是 <b>sy &gt; 4</b>（星星掉出去了，該算帳）。</p>'
              '<p>裡面再放一塊<b>有「否則」</b>的，條件是 <b>sx = px</b>。</p>'
-             + prog(ifelse(slot("sy") + ' &gt; ' + slot("4"),
-                           ifelse(slot("sx") + ' = ' + slot("px"),
-                                  '<div class="plainrow">接到了 → 等一下放</div>',
-                                  '<div class="plainrow">漏接了 → 等一下放</div>')))
+             + mc(ts_if("sy > 4", (ts_if("sx == px", (), ()),)))
              + look("架子搭好了，還沒放東西進去。")) +
 
         step(10, "接到加分，漏接扣命",
@@ -2239,15 +2159,9 @@ def build_g1():
              '<p>在「當啟動時」裡 <code>score</code> 設為 <code>0</code>、'
              '<code>life</code> 設為 <code>3</code>。</p>'
              '<p>然後把兩條路填滿：</p>'
-             + prog(ifelse(slot("sy") + ' &gt; ' + slot("4"),
-                           ifelse(slot("sx") + ' = ' + slot("px"),
-                                  blk("var", "變數 ", slot("score"), " 改變 ", slot("1")) +
-                                  playtone("高音 C", "1/4 拍"),
-                                  blk("var", "變數 ", slot("life"), " 改變 ", slot("-1")) +
-                                  playtone("低音 C", "1/4 拍")) +
-                           blk("var", "變數 ", slot("sy"), " 設為 ", slot("0")) +
-                           blk("var", "變數 ", slot("sx"), " 設為 ",
-                               blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4")))))
+             + mc(ts_if("sy > 4", (ts_if("sx == px", ("score += 1", tone_ts("高音 C", "1/4 拍")),
+                                              ("life += -1", tone_ts("低音 C", "1/4 拍"))),
+                                      "sy = 0", "sx = randint(0, 4)")))
              + note("⚠️ 最後兩塊要放在<b>外面</b>",
                     "「sy 設為 0」和「sx 設為 隨機」要放在<b>「如果 sy &gt; 4」的裡面</b>、"
                     "但在<b>「否則」的外面</b>——不管接到沒接到，都要放一顆新星星。")
@@ -2260,8 +2174,7 @@ def build_g1():
         + step(11, "加料 ①：看得到分數",
                '<p>拉一頂 <b>「當姿勢 晃動 發生」</b>，裡面放 '
                '<b>「顯示數字 score」</b>。</p>'
-               + prog(blk("event", "當姿勢 ", slot("晃動", True), " 發生", hat=True,
-                          nest_html=blk("basic", "顯示數字 ", slot("score"))))
+               + mcp(ts_gesture("Shake", "basic.showNumber(score)"))
                + look("<b>搖一搖</b> → 跳出現在幾分 🔢")
                + '<p class="usedhint">這一關多用到：<b>當姿勢 晃動 發生</b>、<b>顯示數字</b></p>') +
 
@@ -2269,18 +2182,14 @@ def build_g1():
              '<p>在「重複無限次」<b>最下面</b>加一塊 <b>「如果 life &lt; 1 那麼」</b>。</p>'
              '<p>裡面放<b>哭臉</b>、<b>顯示數字 score</b>，再放一塊 '
              '<b>「暫停 2000 毫秒」</b>。</p>'
-             + prog(ifelse(slot("life") + ' &lt; ' + slot("1"),
-                           blk("basic", "顯示圖示 ", slot("😢")) +
-                           blk("basic", "顯示數字 ", slot("score")) +
-                           blk("basic", "暫停 ", slot("2000"), " 毫秒")))
+             + mc(ts_if("life < 1", ("basic.showIcon(IconNames.Sad)", "basic.showNumber(score)", "basic.pause(2000)")))
              + look("三條命用完 → 哭臉 ＋ 你的分數 😢")
              + '<p class="usedhint">這一關多用到：<b>顯示圖示</b></p>') +
 
         step(13, "加料 ③：開場說「GO」",
              '<p>在 <b>「當啟動時」</b> 的<b>最上面</b>加一塊 <b>「顯示文字」</b>，'
              '打上 <code>GO</code>。</p>'
-             + prog(blk("basic", slot("當啟動時"), hat=True,
-                        nest_html=blk("basic", "顯示文字 ", slot("GO"))))
+             + mcp('basic.showString("GO")')
              + look("開機先跑過 <b>GO</b>，再開始掉星星 🏁")
              + '<p class="usedhint">這一關多用到：<b>顯示文字</b></p>') +
 
@@ -2288,10 +2197,7 @@ def build_g1():
              '<p>在 <code>GO</code> 的下面加一塊 '
              '<b>「計次 index 從 0 到 4 執行」</b>（<b>迴圈</b>抽屜）。</p>'
              '<p>裡面放 <b>「點亮 x index y 2」</b> 和 <b>「暫停 100 毫秒」</b>。</p>'
-             + prog(blk("loop", "計次 ", slot("index", True), " 從 0 到 ", slot("4"), " 執行",
-                        hat=True,
-                        nest_html=blk("led", "點亮 x ", slot("index"), " y ", slot("2")) +
-                                  blk("basic", "暫停 ", slot("100"), " 毫秒")))
+             + mc("for (let index = 0; index <= 4; index++) {\n    led.plot(index, 2)\n    basic.pause(100)\n}")
              + look("開機時中間那排燈<b>一顆一顆亮過去</b> ➡️")
              + adult("「計次」就是「從 0 數到 4，每數一次做一遍」。"
                      "它跟第 5 課的「重複 N 次」差別是：計次<b>知道自己數到幾</b>，"
@@ -2300,7 +2206,7 @@ def build_g1():
 
         step(15, "加料 ⑤：畫一張自己的開場圖",
              '<p>在掃描動畫下面加一塊 <b>「顯示指示燈」</b>，點格子畫一顆星星。</p>'
-             + prog(blk("basic", "顯示指示燈 ", slot("⭐ 星星")))
+             + mc(leds_ts(STAR))
              + leds(STAR, "照這樣點")
              + look("開機：星星圖 → 掃描 → GO → 開始玩 ✨")
              + '<p class="usedhint">這一關多用到：<b>顯示指示燈</b></p>') +
@@ -2309,11 +2215,7 @@ def build_g1():
              '<p>覺得太難的話，讓它先<b>用箭頭告訴你</b>星星在左邊還右邊。</p>'
              '<p>在「重複無限次」裡加 <b>「如果 sx &lt; px 那麼」</b> → '
              '<b>顯示箭頭</b> 選<b>西</b>（左）；<b>否則</b> → 選<b>東</b>（右）。</p>'
-             + prog(ifelse(slot("sx") + ' &lt; ' + slot("px"),
-                           blk("basic", "顯示箭頭 ",
-                               '<div class="block b-math">箭頭數字 ' + slot("西") + '</div>'),
-                           blk("basic", "顯示箭頭 ",
-                               '<div class="block b-math">箭頭數字 ' + slot("東") + '</div>')))
+             + mc(ts_if("sx < px", ("basic.showArrow(ArrowNames.West)",), ("basic.showArrow(ArrowNames.East)",)))
              + note("🧭 箭頭用的是<b>方位</b>", "<b>西</b> 是左邊、<b>東</b> 是右邊。")
              + look("箭頭一直指著星星的方向 🧭（會蓋住畫面，玩過癮就可以拿掉）")
              + '<p class="usedhint">這一關多用到：<b>顯示箭頭</b></p>') +
@@ -2322,10 +2224,7 @@ def build_g1():
              '<p>把 <b>「暫停 400 毫秒」</b> 裡的 <code>400</code> 換成一個<b>算式</b>：</p>'
              '<p>去 <b>數學</b> 抽屜拿 <b>減法</b> 和 <b>乘法</b>，拼成 '
              '<b>400 - score × 20</b>。</p>'
-             + prog(blk("basic", "暫停 ",
-                        blk("math", slot("400"), " - ",
-                            blk("math", slot("score"), " × ", slot("20"))),
-                        " 毫秒"))
+             + mc("basic.pause(400 - score * 20)")
              + look("分數越高，星星掉得<b>越快</b> 🔥")
              + adult("分數很高時這個算式會變成負數，micro:bit 會當成 0（全速）。"
                      "對玩起來沒問題，但如果他問「為什麼不會更快了」，這就是答案。")
@@ -2335,8 +2234,7 @@ def build_g1():
              '<p>用 <b>光線感測值</b> 做一個「作弊鍵」：手一蓋住板子，星星就掉得慢。</p>'
              '<p>在「重複無限次」裡加 <b>「如果 光線感測值 &lt; 50 那麼」</b> → '
              '<b>暫停 300 毫秒</b>。</p>'
-             + prog(ifelse(blk("event", "光線感測值") + ' &lt; ' + slot("50"),
-                           blk("basic", "暫停 ", slot("300"), " 毫秒")))
+             + mc(ts_if("input.lightLevel() < 50", ("basic.pause(300)",)))
              + look("用手<b>蓋住</b>板子 → 星星慢下來 🐢 放開 → 恢復。")
              + '<p class="usedhint">這一關多用到：<b>光線感測值</b></p>') +
 
@@ -2344,12 +2242,8 @@ def build_g1():
              '<p>在「接到了」那一條路裡，加 <b>「如果 score = 10 那麼」</b>。</p>'
              '<p>裡面放 <b>「重複 5 次 執行」</b>，'
              '裡面再放<b>笑臉</b>、<b>暫停 100</b>、<b>清空畫面</b>、<b>暫停 100</b>。</p>'
-             + prog(ifelse(slot("score") + ' = ' + slot("10"),
-                           blk("loop", "重複 ", slot("5"), " 次 執行",
-                               nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
-                                         blk("basic", "暫停 ", slot("100"), " 毫秒") +
-                                         blk("basic", "清空畫面") +
-                                         blk("basic", "暫停 ", slot("100"), " 毫秒"))))
+             + mc(ts_if("score == 10", (ts_repeat(5, "basic.showIcon(IconNames.Happy)", "basic.pause(100)",
+                                         "basic.clearScreen()", "basic.pause(100)"),)))
              + look("接到第 10 顆星星 → 笑臉<b>閃五下</b>慶祝 🎉")
              + '<p class="usedhint">這一關多用到：<b>重複 N 次 執行</b></p>') +
 
@@ -2386,21 +2280,18 @@ def build_g2():
         step(2, "讓地鼠隨機冒出來",
              '<p>在 <b>「重複無限次」</b> 裡放：<b>清空畫面</b>，'
              '再把 <code>mx</code> 設為 <b>隨機取數 0 到 4</b>。</p>'
-             + prog(blk("loop", "重複無限次", hat=True,
-                        nest_html=blk("basic", "清空畫面") +
-                                  blk("var", "變數 ", slot("mx"), " 設為 ",
-                                      blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4")))))
+             + mcp(ts_forever("basic.clearScreen()", "mx = randint(0, 4)"))
              + look("畫面還是黑的——盒子換了數字，但還沒畫出來。")) +
 
         step(3, "把地鼠點亮",
              find("led", "點亮 x 0 y 0")
              + '<p>x 塞圓圓的 <code>mx</code>，y 打 <code>2</code>（中間那排）。</p>'
-             + prog(blk("led", "點亮 x ", slot("mx"), " y ", slot("2")))
+             + mc("led.plot(mx, 2)")
              + look("中間那排<b>一直有一顆燈在亂跳</b> 🐹")) +
 
         step(4, "讓它停久一點",
              '<p>下面加一塊 <b>「暫停 800 毫秒」</b>，給你時間反應。</p>'
-             + prog(blk("basic", "暫停 ", slot("800"), " 毫秒"))
+             + mc("basic.pause(800)")
              + look("地鼠<b>停一下</b>才換位置，看得清楚了 👀")) +
 
         step(5, "問問看你有沒有在按 A",
@@ -2409,7 +2300,7 @@ def build_g2():
                     "<b>「當按鈕 A 被按下」</b>是帽子，你一按它就跳出來做事。<br>"
                     "<b>「按鈕 A 被按下？」</b>是<b>問句</b>，它只回答「現在有沒有在按」。")
              + '<p>先拖到空白處放著，下一步要用。</p>'
-             + prog(blk("event", "按鈕 ", slot("A", True), " 被按下？"))
+             + mc("input.buttonIsPressed(Button.A)")
              + look("認得這塊就打勾 ✅")
              + adult("這是這個遊戲的重點：<b>事件</b>（等你按）和<b>詢問</b>（現在按著嗎）"
                      "是兩種不同的做法。<br>"
@@ -2418,22 +2309,16 @@ def build_g2():
         step(6, "地鼠在左邊還是右邊？",
              '<p>在「暫停」<b>上面</b>加一塊<b>有「否則」</b>的判斷，'
              '條件是 <b>mx &lt; 2</b>（左半邊）。</p>'
-             + prog(ifelse(slot("mx") + ' &lt; ' + slot("2"),
-                           '<div class="plainrow">地鼠在左邊 → 要按 A</div>',
-                           '<div class="plainrow">地鼠在右邊 → 要按 B</div>'))
+             + '<p>「那麼」＝地鼠在<b>左邊</b> → 要按 A；「否則」＝地鼠在<b>右邊</b> → 要按 B。</p>'
+             + mc(ts_if("mx < 2", (), ()))
              + look("架子搭好了，還沒放東西。")) +
 
         step(7, "按對了就加分",
              '<p><b>那麼</b>（左邊）裡面放 <b>「如果 按鈕 A 被按下？ 那麼」</b> → '
              '<code>score</code> 改變 1 ＋ 一個<b>高音</b>。</p>'
              '<p><b>否則</b>（右邊）一樣，但改成 <b>按鈕 B 被按下？</b>。</p>'
-             + prog(ifelse(slot("mx") + ' &lt; ' + slot("2"),
-                           ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？"),
-                                  blk("var", "變數 ", slot("score"), " 改變 ", slot("1")) +
-                                  playtone("高音 C", "1/4 拍")),
-                           ifelse(blk("event", "按鈕 ", slot("B", True), " 被按下？"),
-                                  blk("var", "變數 ", slot("score"), " 改變 ", slot("1")) +
-                                  playtone("高音 C", "1/4 拍"))))
+             + mc(ts_if("mx < 2", (ts_if("input.buttonIsPressed(Button.A)", ("score += 1", tone_ts("高音 C", "1/4 拍"))),),
+                                (ts_if("input.buttonIsPressed(Button.B)", ("score += 1", tone_ts("高音 C", "1/4 拍"))),)))
              + note("👆 要<b>按著不放</b>",
                     "地鼠出現的<b>那一瞬間</b>要正在按著，它才數得到。<br>"
                     "所以玩的時候手指<b>壓著</b>比較好中。")
@@ -2442,8 +2327,7 @@ def build_g2():
         step(8, "看分數",
              '<p>在「重複無限次」<b>最下面</b>加一塊 <b>「顯示數字 score」</b>，'
              '再加 <b>「暫停 300 毫秒」</b>。</p>'
-             + prog(blk("basic", "顯示數字 ", slot("score")) +
-                    blk("basic", "暫停 ", slot("300"), " 毫秒"))
+             + mc("basic.showNumber(score)\nbasic.pause(300)")
              + look("每打完一隻，畫面會<b>閃一下分數</b> 🔢")
              + adult("到這裡遊戲就完整了。後面的加料關可做可不做。")) +
 
@@ -2454,28 +2338,22 @@ def build_g2():
                + '<p>用它做「亮 → 暗 → 亮」，地鼠就會<b>閃</b>。</p>'
                '<p>在「點亮」下面放：<b>暫停 200</b>、<b>點的狀態切換 x mx y 2</b>、'
                '<b>暫停 200</b>、再一塊<b>點的狀態切換</b>。</p>'
-               + prog(blk("led", "點亮 x ", slot("mx"), " y ", slot("2")) +
-                      blk("basic", "暫停 ", slot("200"), " 毫秒") +
-                      blk("led", "點的狀態切換 x ", slot("mx"), " y ", slot("2")) +
-                      blk("basic", "暫停 ", slot("200"), " 毫秒") +
-                      blk("led", "點的狀態切換 x ", slot("mx"), " y ", slot("2")))
+               + mc("led.plot(mx, 2)\nbasic.pause(200)\nled.toggle(mx, 2)\nbasic.pause(200)\nled.toggle(mx, 2)")
                + look("地鼠會<b>一閃一閃</b> ✨")
                + '<p class="usedhint">這一關多用到：<b>點的狀態切換 x y</b></p>') +
 
         step(10, "加料 ②：打完就把它熄掉",
              find("led", "不點亮 x 0 y 0")
              + '<p>在「按對了加分」的裡面，加一塊 <b>「不點亮 x mx y 2」</b>。</p>'
-             + prog(blk("led", "不點亮 x ", slot("mx"), " y ", slot("2")))
+             + mc("led.unplot(mx, 2)")
              + look("打中的<b>那一瞬間</b>地鼠就消失了，手感好很多 🔨")
              + '<p class="usedhint">這一關多用到：<b>不點亮 x y</b></p>') +
 
         step(11, "加料 ③：沒按到就「嗚」一聲",
              '<p>給「如果 按鈕 A 被按下？」加上 <b>否則</b>，裡面放一個<b>低音</b>。</p>'
              '<p>再放一塊 <b>「rest for 1/4 拍」</b>（音效抽屜），讓聲音之間有空隙。</p>'
-             + prog(ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？"),
-                           blk("var", "變數 ", slot("score"), " 改變 ", slot("1")),
-                           playtone("低音 C", "1/4 拍") +
-                           blk("music", "rest for ", slot("1/4 拍"))))
+             + mc(ts_if("input.buttonIsPressed(Button.A)", ("score += 1",),
+                          (tone_ts("低音 C", "1/4 拍"), "music.rest(music.beat(BeatFraction.Quarter))")))
              + look("沒打到會「嗚」一聲，知道自己漏掉了 😵")
              + '<p class="usedhint">這一關多用到：<b>rest for</b></p>') +
 
@@ -2483,9 +2361,8 @@ def build_g2():
              '<p>用 <b>「或」</b>（邏輯抽屜）把兩個問句串起來：</p>'
              '<p><b>「如果 (按鈕 A 被按下？ 或 按鈕 B 被按下？) 那麼」</b> → '
              '表示「你有在按其中一顆」。</p>'
-             + prog(ifelse(blk("event", "按鈕 ", slot("A", True), " 被按下？") + ' 或 ' +
-                           blk("event", "按鈕 ", slot("B", True), " 被按下？"),
-                           '<div class="plainrow">你有按（不管哪一顆）</div>'))
+             + '<p>成立＝你<b>有在按</b>（不管哪一顆）。</p>'
+             + mc(ts_if("input.buttonIsPressed(Button.A) || input.buttonIsPressed(Button.B)", ()))
              + tip("🔀 「或」是什麼", "<b>兩邊只要有一邊成立</b>，整句就成立。")
              + look("看得懂就打勾 ✅")
              + '<p class="usedhint">這一關多用到：<b>或</b></p>') +
@@ -2496,8 +2373,8 @@ def build_g2():
              + note("😲 這樣就跟「重複無限次」一樣了",
                     "<b>「重複 判斷 true 執行」</b>＝ 只要條件成立就一直做，"
                     "而 <code>true</code> 永遠成立，所以它<b>永遠不會停</b>。")
-             + prog(blk("loop", "重複 判斷 ", slot("true"), " 執行", hat=True,
-                        nest_html='<div class="plainrow">跟「重複無限次」做一樣的事</div>'))
+             + '<p>放進去的積木，會跟「重複無限次」一樣<b>一直做</b>。</p>'
+             + mc("while (true) {\n\n}")
              + look("看得懂就打勾 ✅（不用真的換掉，知道有這種寫法就好）")
              + adult("之後要做「命還沒用完就一直玩」這種條件迴圈，用的就是這塊。"
                      "「躲石頭」那個遊戲會真的派上用場。")
@@ -2507,8 +2384,7 @@ def build_g2():
              find("event", "當引腳 P0 被按下", "（<b>輸入</b>抽屜）")
              + '<p>拉出來，裡面放 <b>「變數 score 改變 5」</b>。</p>'
              '<p>手捏著 <b>GND</b>，另一手碰 <b>P0</b> → 偷偷加 5 分 😈</p>'
-             + prog(blk("event", "當引腳 ", slot("P0", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("score"), " 改變 ", slot("5"))))
+             + mcp(ts_pin("P0", "score += 5"))
              + look("碰一下金色的孔 → 分數<b>跳 5 分</b> 🪙")
              + '<p class="usedhint">這一關多用到：<b>當引腳 P0 被按下</b></p>') +
 
@@ -2517,9 +2393,7 @@ def build_g2():
              + '<p>跟「按鈕 A 被按下？」一樣是<b>問句</b>。</p>'
              '<p>試試看：<b>「如果 引腳 P0 被按下？ 那麼」</b> → '
              '用 <b>加法</b> 把分數變兩倍：<code>score</code> 設為 <b>score + score</b>。</p>'
-             + prog(ifelse(blk("event", "引腳 ", slot("P0", True), " 被按下？"),
-                           blk("var", "變數 ", slot("score"), " 設為 ",
-                               blk("math", slot("score"), " + ", slot("score")))))
+             + mc(ts_if("input.pinIsPressed(TouchPin.P0)", ("score = score + score",)))
              + look("按著金孔的時候，分數會<b>翻倍</b> 💰")
              + '<p class="usedhint">這一關多用到：<b>引腳 P0 被按下？</b>、<b>加法</b></p>') +
 
@@ -2529,7 +2403,7 @@ def build_g2():
                     "有些抽屜點開之後，<b>最下面</b>還有一個叫 <b>「更多」</b>的。<br>"
                     "比較少用的積木都收在那裡，點一下就展開了。")
              + '<p>放進 <b>「當啟動時」</b>，數字改成 <code>80</code>。</p>'
-             + prog(blk("led", "燈光 亮度設為 ", slot("80")))
+             + mc("led.setBrightness(80)")
              + look("整片燈變<b>柔和</b>了，晚上玩不刺眼 🌙")
              + '<p class="usedhint">這一關多用到：<b>燈光 亮度設為</b></p>') +
 
@@ -2571,8 +2445,8 @@ def build_g3():
              + note("🤔 為什麼不用「重複無限次」",
                     "因為等一下<b>撞到石頭時要讓它停下來</b>。<br>"
                     "只要把 <code>score</code> 設成 <code>999</code>，這個迴圈就會自己結束。")
-             + prog(blk("loop", "重複 判斷 ", slot("score") + ' &lt; ' + slot("999"),
-                        " 執行", hat=True))
+             + '<p>放在 <b>「當啟動時」</b> 裡、剛才那些「設為」的<b>下面</b>。</p>'
+             + mcp("while (score < 999) {\n\n}")
              + look("架子搭好了，裡面還空空的。")
              + adult("這是「用一個變數當開關」的入門。<br>"
                      "比起「重複無限次 ＋ 一個 playing 旗標」，"
@@ -2581,36 +2455,24 @@ def build_g3():
         step(3, "把石頭畫出來、讓它掉",
              '<p>迴圈裡放：<b>清空畫面</b> → <b>點亮 x rx y ry</b> → '
              '<b>暫停 400 毫秒</b> → <b>ry 改變 1</b>。</p>'
-             + prog(blk("loop", "重複 判斷 ", slot("score") + ' &lt; ' + slot("999"),
-                        " 執行", hat=True,
-                        nest_html=blk("basic", "清空畫面") +
-                                  blk("led", "點亮 x ", slot("rx"), " y ", slot("ry")) +
-                                  blk("basic", "暫停 ", slot("400"), " 毫秒") +
-                                  blk("var", "變數 ", slot("ry"), " 改變 ", slot("1"))))
+             + mcp("while (score < 999) {\n" + _body(("basic.clearScreen()", "led.plot(rx, ry)", "basic.pause(400)", "ry += 1",)) + "\n}")
              + look("一顆石頭從上面<b>掉下來</b> 🪨 掉出去就不見了。")) +
 
         step(4, "石頭掉完就換一顆新的",
              '<p>加一塊 <b>「如果 ry &gt; 4 那麼」</b>：</p>'
              '<p>裡面 <code>ry</code> 設 <code>0</code>、'
              '<code>rx</code> 設 <b>隨機取數 0 到 4</b>、<code>score</code> 改變 <code>1</code>。</p>'
-             + prog(ifelse(slot("ry") + ' &gt; ' + slot("4"),
-                           blk("var", "變數 ", slot("ry"), " 設為 ", slot("0")) +
-                           blk("var", "變數 ", slot("rx"), " 設為 ",
-                               blk("math", "隨機取數 ", slot("0"), " 到 ", slot("4"))) +
-                           blk("var", "變數 ", slot("score"), " 改變 ", slot("1"))))
+             + mc(ts_if("ry > 4", ("ry = 0", "rx = randint(0, 4)", "score += 1")))
              + look("石頭一顆接一顆<b>不停</b>掉下來 🪨🪨🪨")) +
 
         step(5, "把你自己畫出來",
              '<p>在「點亮石頭」的<b>下面</b>加 <b>「點亮 x px y 4」</b>。</p>'
-             + prog(blk("led", "點亮 x ", slot("px"), " y ", slot("4")))
+             + mc("led.plot(px, 4)")
              + look("最下面多了一顆燈，那是<b>你</b> 🔆")) +
 
         step(6, "A 往左、B 往右",
              '<p>跟接星星一樣，做兩頂帽子改 <code>px</code>。</p>'
-             + prog(blk("event", "當按鈕 ", slot("A", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("-1"))) +
-                    blk("event", "當按鈕 ", slot("B", True), " 被按下", hat=True,
-                        nest_html=blk("var", "變數 ", slot("px"), " 改變 ", slot("1"))))
+             + mcp(ts_button("A", "px += -1") + "\n" + ts_button("B", "px += 1"))
              + look("你可以左右移動了 ⬅️➡️")) +
 
         step(7, "新招：問它「我這格亮著嗎」",
@@ -2619,14 +2481,12 @@ def build_g3():
                     "石頭先畫、你後畫。<br>"
                     "如果<b>畫你之前</b>那一格<b>已經亮著</b>，就表示石頭在你身上——撞到了。")
              + '<p>先拖到空白處，下一步要用。</p>'
-             + prog(blk("led", "點的狀態 x ", slot("px"), " y ", slot("4")))
+             + mc("led.point(px, 4)")
              + look("認得這塊就打勾 ✅")) +
 
         step(8, "撞到就停下來",
              '<p>把它放在 <b>「點亮 x px y 4」的上面</b>，配一塊 <b>「如果…那麼」</b>：</p>'
-             + prog(ifelse(blk("led", "點的狀態 x ", slot("px"), " y ", slot("4")),
-                           blk("basic", "顯示圖示 ", slot("😢")) +
-                           blk("var", "變數 ", slot("score"), " 設為 ", slot("999"))))
+             + mc(ts_if("led.point(px, 4)", ("basic.showIcon(IconNames.Sad)", "score = 999")))
              + note("⚠️ 順序很重要",
                     "一定要放在<b>「點亮 x px y 4」的上面</b>。<br>"
                     "先問「亮著嗎」，才輪到你把自己畫上去，不然永遠都是亮的。")
@@ -2640,10 +2500,7 @@ def build_g3():
              + note("💡 用 999 當結束訊號的副作用",
                     "<code>score</code> 被設成 <code>999</code> 之後就不是分數了。<br>"
                     "所以要<b>先秀出來</b>，再設 999。")
-             + prog(ifelse(blk("led", "點的狀態 x ", slot("px"), " y ", slot("4")),
-                           blk("basic", "顯示數字 ", slot("score")) +
-                           blk("basic", "顯示圖示 ", slot("😢")) +
-                           blk("var", "變數 ", slot("score"), " 設為 ", slot("999"))))
+             + mc(ts_if("led.point(px, 4)", ("basic.showNumber(score)", "basic.showIcon(IconNames.Sad)", "score = 999")))
              + look("<b>可以玩了！</b> 撞到 → 先看到分數，再看到哭臉 😢")) +
 
         stage("🍬", "加料關", "一關一個小點子，<b>做幾關都可以</b>。")
@@ -2654,16 +2511,14 @@ def build_g3():
                       "第 8 課說過這塊<b>聲音不會停</b>。<br>"
                       "這裡剛好利用這一點——撞到就一直叫，直到你叫它停。")
                + '<p>音改成 <b>低音 C</b>，放在哭臉<b>前面</b>。</p>'
-               + prog(blk("music", "演奏 音階 ", slot("低音 C")))
+               + mc("music.ringTone(131)")
                + look("撞到 → <b>一直「嗚——」</b>不停 😱 下一關來關掉它。")
                + '<p class="usedhint">這一關多用到：<b>演奏 音階</b></p>') +
 
         step(11, "加料 ②：兩秒後讓它閉嘴",
              find("music", "停止播放所有音效")
              + '<p>在「演奏 音階」後面放 <b>「暫停 2000 毫秒」</b>，再放這一塊。</p>'
-             + prog(blk("music", "演奏 音階 ", slot("低音 C")) +
-                    blk("basic", "暫停 ", slot("2000"), " 毫秒") +
-                    blk("music", "停止播放所有音效"))
+             + mc("music.ringTone(131)\nbasic.pause(2000)\nmusic.stopAllSounds()")
              + look("「嗚——」響兩秒就<b>安靜</b>了 🤫")
              + '<p class="usedhint">這一關多用到：<b>停止播放所有音效</b></p>') +
 
@@ -2671,8 +2526,7 @@ def build_g3():
              '<p>再做兩個盒子 <code>rx2</code>、<code>ry2</code>，'
              '照第 3、4 步再來一次。</p>'
              '<p>撞到判定不用改——<b>點的狀態</b>本來就不管是哪一顆石頭 😎</p>'
-             + prog(blk("led", "點亮 x ", slot("rx"), " y ", slot("ry")) +
-                    blk("led", "點亮 x ", slot("rx2"), " y ", slot("ry2")))
+             + mc("led.plot(rx, ry)\nled.plot(rx2, ry2)")
              + look("<b>兩顆</b>石頭一起掉，難度直接翻倍 🪨🪨")
              + adult("這一關是在讓他體會「用燈的狀態判定碰撞」的好處："
                      "石頭再多，判斷都只有一塊積木。<br>"
@@ -2681,10 +2535,7 @@ def build_g3():
         step(13, "加料 ④：越熱掉越快",
              find("event", "溫度感測值 (°C)")
              + '<p>把 <b>「暫停 400」</b> 的數字換成 <b>400 - 溫度感測值 × 5</b>。</p>'
-             + prog(blk("basic", "暫停 ",
-                        blk("math", slot("400"), " - ",
-                            blk("math", blk("event", "溫度感測值 (°C)"), " × ", slot("5"))),
-                        " 毫秒"))
+             + mc("basic.pause(400 - input.temperature() * 5)")
              + look("<b>手握住板子</b>暖一下 → 石頭掉得更快 🔥")
              + adult("室溫大概 25 度，所以暫停約 275 毫秒。手握住會升到 30 度以上，"
                      "掉得明顯更快。這是把感測器接上遊戲難度的第一步。")
@@ -2693,7 +2544,7 @@ def build_g3():
         step(14, "加料 ⑤：兩台連線，比誰活得久（先講暗號）",
              find("radio", "廣播群組設為 1")
              + '<p>放進 <b>「當啟動時」</b>，數字保持 <code>1</code>。</p>'
-             + prog(blk("radio", "廣播群組設為 ", slot("1")))
+             + mc("radio.setGroup(1)")
              + look("畫面上出現<b>兩台</b>假的 micro:bit 了！")
              + '<p class="usedhint">這一關多用到：<b>廣播群組設為</b></p>') +
 
@@ -2701,7 +2552,7 @@ def build_g3():
              find("radio", "廣播發送數字 0")
              + '<p>放在「如果撞到」裡面，數字框塞圓圓的 <code>score</code>。</p>'
              + note("⏰ 要放在設成 999 <b>之前</b>", "不然傳出去的會是 999。")
-             + prog(blk("radio", "廣播發送數字 ", slot("score")))
+             + mc("radio.sendNumber(score)")
              + look("其中一台撞到 → 另一台<b>收到</b>了（下一關才看得到）📡")
              + '<p class="usedhint">這一關多用到：<b>廣播發送數字</b></p>') +
 
@@ -2709,17 +2560,14 @@ def build_g3():
              find("radio", "當收到廣播數字 receivedNumber", "（一頂<b>帽子</b>）")
              + '<p>裡面放 <b>「如果 score &gt; receivedNumber 那麼」</b> → '
              '<b>顯示文字 WIN</b>，<b>否則</b> → <b>顯示文字 LOSE</b>。</p>'
-             + prog(blk("radio", "當收到廣播數字 ", slot("receivedNumber", True), hat=True,
-                        nest_html=ifelse(slot("score") + ' &gt; ' + slot("receivedNumber"),
-                                         blk("basic", "顯示文字 ", slot("WIN")),
-                                         blk("basic", "顯示文字 ", slot("LOSE")))))
+             + mcp(ts_radio_number(ts_if("score > receivedNumber", ('basic.showString("WIN")',), ('basic.showString("LOSE")',))))
              + look("兩台比分數，贏的那台跑出 <b>WIN</b> 🏆")
              + '<p class="usedhint">這一關多用到：<b>當收到廣播數字</b></p>') +
 
         step(17, "加料 ⑧：用文字喊話",
              find("radio", "廣播發送文字")
              + '<p>撞到的時候，除了送分數，再送一句 <code>DEAD</code>。</p>'
-             + prog(blk("radio", "廣播發送文字 ", slot("DEAD")))
+             + mc('radio.sendString("DEAD")')
              + look("送出去了，但還沒人在聽。下一關 👇")
              + '<p class="usedhint">這一關多用到：<b>廣播發送文字</b></p>') +
 
@@ -2727,21 +2575,15 @@ def build_g3():
              find("radio", "當收到廣播文字 receivedString", "（一頂<b>帽子</b>）")
              + '<p>裡面放 <b>「重複 3 次 執行」</b>，'
              '裡面放<b>笑臉</b>、<b>暫停 200</b>、<b>清空畫面</b>、<b>暫停 200</b>。</p>'
-             + prog(blk("radio", "當收到廣播文字 ", slot("receivedString", True), hat=True,
-                        nest_html=blk("loop", "重複 ", slot("3"), " 次 執行",
-                                      nest_html=blk("basic", "顯示圖示 ", slot("😀")) +
-                                                blk("basic", "暫停 ", slot("200"), " 毫秒") +
-                                                blk("basic", "清空畫面") +
-                                                blk("basic", "暫停 ", slot("200"), " 毫秒"))))
+             + mcp(ts_radio_string(ts_repeat(3, "basic.showIcon(IconNames.Happy)", "basic.pause(200)",
+                                           "basic.clearScreen()", "basic.pause(200)")))
              + look("對手一撞到，你這台就<b>笑臉閃三下</b> 😀🎉")
              + '<p class="usedhint">這一關多用到：<b>當收到廣播文字</b>、<b>重複 N 次 執行</b></p>') +
 
         step(19, "加料 ⑩：石頭剛好砸在你頭上才算",
              '<p>用 <b>「且」</b>（邏輯抽屜）寫另一種撞到判定：</p>'
              '<p><b>「如果 (ry = 4 且 rx = px) 那麼」</b> → 撞到。</p>'
-             + prog(ifelse(slot("ry") + ' = ' + slot("4") + ' 且 ' +
-                           slot("rx") + ' = ' + slot("px"),
-                           blk("basic", "顯示圖示 ", slot("😢"))))
+             + mc(ts_if("ry == 4 && rx == px", ("basic.showIcon(IconNames.Sad)",)))
              + tip("🔗 「且」是什麼", "<b>兩邊都要成立</b>，整句才成立。")
              + look("看得懂就打勾 ✅")
              + adult("這是跟第 7 步「點的狀態」<b>完全不同</b>的解法，結果一樣。<br>"
@@ -2786,6 +2628,8 @@ def main():
             f"圖鑑的「{b['id']}」({fixed.strip()}) 不在宣稱的抽屜裡，"
             f"請對照 makecode-drawers.txt")
 
+    missing_view = [b["id"] for b in BLOCKS if b["id"] not in BLOCK_VIEW]
+    assert not missing_view, f"BLOCK_VIEW 少了這些積木的畫法：{missing_view}"
     ids = {b["id"] for b in BLOCKS}
     for g in GAMES:
         bad = [u for u in g["uses"] if u not in ids]

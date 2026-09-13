@@ -138,6 +138,75 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
   try { if (localStorage.getItem(doneKey(a.getAttribute('data-lesson'))) === '1') a.classList.add('done'); } catch(e){}
 });
 
+// ===== 積木圖：交給 MakeCode 官方渲染器畫（外觀跟編輯器完全一樣）=====
+// head 已經先設好 PXT_LANG=zh-TW cookie，並用 async 載入 makecode.microbit.org/--embed。
+// 這裡等 runner 就緒再渲染；畫完發出 mb:blocks-ready 事件（圖鑑測驗要等 SVG 出來才能出題）。
+// 15 秒內沒畫出來（離線、被擋）就換成提示，不要把原始程式碼丟給孩子看。
+(function () {
+  var SEL = 'code.lang-block, code.lang-blocks, code.lang-blocksxml';
+  if (!document.querySelector(SEL)) return;
+  var done = false;
+
+  function finish(ok) {
+    if (done) return;
+    done = true;
+    // 還留著原始 <code> 的片段就是沒畫出來的，只替換那些
+    document.querySelectorAll('.mc').forEach(function (m) {
+      if (m.querySelector(SEL)) {
+        m.innerHTML = '<div class="mc-offline">🧩 積木圖要連上網路才看得到，先照著文字做也可以</div>';
+      }
+    });
+    root.classList.add(ok ? 'blocks-ready' : 'blocks-offline');
+    document.dispatchEvent(new CustomEvent('mb:blocks-ready', { detail: { ok: ok } }));
+  }
+
+  var timer = setTimeout(function () { finish(false); }, 15000);
+
+  // MakeCode 文件站會另外載入 fieldeditors.js，註冊「姿勢」「引腳」這種特製下拉。
+  // 只用 --embed 不會載入它，「當姿勢 晃動 發生」的「晃動 ▾」就整個不見（實測踩過）。
+  // 網址從 pxt.webConfig 取，跟著 MakeCode 版本走，不寫死 commit。
+  function registerFieldEditors() {
+    return new Promise(function (resolve) {
+      try {
+        var s = document.createElement('script');
+        s.src = pxt.webConfig.commitCdnUrl + 'fieldeditors.js';
+        s.onload = function () {
+          var init = pxt.editor && pxt.editor.initFieldExtensionsAsync;
+          Promise.resolve(init ? init({}) : null).then(function (res) {
+            ((res && res.fieldEditors) || []).forEach(function (fe) {
+              pxt.blocks.registerFieldEditor(fe.selector, fe.editor, fe.validator);
+            });
+          }).catch(function () {}).then(resolve);
+        };
+        s.onerror = resolve;   // 載不到就照畫，只是姿勢下拉會少字
+        document.head.appendChild(s);
+      } catch (e) { resolve(); }
+    });
+  }
+
+  function render() {
+    var o = Object.assign(pxt.runner.defaultClientRenderOptions(), {
+      snippetReplaceParent: true, showEdit: false, showJavaScript: false, simulator: false
+    });
+    registerFieldEditors().then(function () {
+      return pxt.runner.renderAsync(o);
+    }).then(function () {
+      clearTimeout(timer);
+      finish(!document.querySelector(SEL));
+    }, function () {
+      clearTimeout(timer);
+      finish(false);
+    });
+  }
+
+  // 載入器是 async 的：先等它定義出 ksRunnerReady，再用它排隊，等 MakeCode 真的初始化完才渲染。
+  // 不能直接偵測 pxt.runner——物件會先出現、目標還沒載好，renderAsync 什麼都沒畫就結束（實測踩過）。
+  (function wait() {
+    if (typeof window.ksRunnerReady === 'function') return window.ksRunnerReady(render);
+    if (!done) setTimeout(wait, 150);
+  })();
+})();
+
 // ===== 積木圖鑑 101 =====
 // 兩種狀態：seen（翻圖鑑點過）和 got（測驗答對過）。進度條算的是 got。
 (function () {
@@ -213,11 +282,22 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
     cur = pool[Math.floor(Math.random() * pool.length)];
 
     qBlock.innerHTML = '';
-    var shown = cur.querySelector('.bwrap .block').cloneNode(true);
-    // 積木上的抽屜名標籤要拿掉，不然答案就直接印在題目上了（巢狀積木裡的也要拿）
-    Array.prototype.slice.call(shown.querySelectorAll('.tag')).forEach(function (t) { t.remove(); });
-    if (shown.classList.contains('tag')) shown.remove();
-    qBlock.appendChild(shown);
+    // 題目直接拿圖鑑卡片上已經渲染好的 SVG（官方渲染器畫的，本來就沒有抽屜名，不會洩答案）
+    var svg = cur.querySelector('.bwrap svg');
+    if (svg) {
+      var box = document.createElement('div');
+      box.className = 'mc';
+      box.appendChild(svg.cloneNode(true));
+      qBlock.appendChild(box);
+    } else if (!root.classList.contains('blocks-ready') && !root.classList.contains('blocks-offline')) {
+      // 還沒畫完就先等，畫完再出題
+      qBlock.textContent = '🧩 積木載入中…';
+      document.addEventListener('mb:blocks-ready', function () { if (!quiz.hidden) ask(); }, { once: true });
+      return;
+    } else {
+      // 離線：沒有積木圖，就用一句話描述出題
+      qBlock.textContent = '「' + cur.querySelector('.d').textContent + '」';
+    }
     qMsg.textContent = '';
     qMsg.className = 'qmsg';
     qNext.style.display = 'none';
