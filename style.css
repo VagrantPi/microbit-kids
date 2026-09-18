@@ -410,3 +410,14 @@ html[data-theme=dark] .moretag{background:#3a2f14;border-color:#7a5a2a;color:#f0
 /* 圖鑑卡片、遊戲積木卡、測驗題目裡的積木圖不要再套一層框 */
 .dexcard .bwrap .prog.mc,.ucard .prog.mc,.quiz .qblock .mc{background:transparent;border:0;padding:0;margin:0}
 .quiz .qblock svg.blocklyPreview{margin:0 auto}
+
+/* ================= 積木入門的小播放器 ================= */
+.ledplay{display:inline-flex;flex-direction:column;align-items:center;gap:10px;margin:12px 0}
+.ledplay .playbtn{font:inherit;font-weight:800;font-size:15.5px;cursor:pointer;
+  background:var(--card);color:var(--ink);border:3px solid var(--line);
+  border-radius:999px;padding:8px 18px;transition:.15s}
+.ledplay .playbtn:hover{border-color:var(--brand)}
+.ledplay.playing .playbtn{background:var(--go);border-color:var(--go);color:#fff}
+/* 首頁「積木入門」大卡 */
+.bigcard.learn{background:linear-gradient(120deg,#e8fff1,#e6f4ff);border-color:#8fd8b0}
+html[data-theme=dark] .bigcard.learn{background:linear-gradient(120deg,#14311f,#16283f);border-color:#2f6b4a}

@@ -207,6 +207,60 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
   })();
 })();
 
+// ===== 積木入門的小小 LED 播放器 =====
+// MakeCode 官方模擬器不能嵌在第三方網站（實測 /---run 會回「Oops, wrong arguments」），
+// 所以自己做一個：照 data-frames 的「圖樣 ＋ 停留毫秒」切換 25 顆燈的 .on。
+// 步驟卡被收起來時自動停，才不會有看不見的動畫在背景一直跑。
+document.querySelectorAll('.ledplay').forEach(function (box) {
+  var cells = Array.prototype.slice.call(box.querySelectorAll('.leds i'));
+  var btn = box.querySelector('.playbtn');
+  var frames;
+  try { frames = JSON.parse(box.getAttribute('data-frames')); } catch (e) { return; }
+  if (!frames || !frames.length || !btn) return;
+  var loop = box.getAttribute('data-loop') === '1';
+  var idleLabel = btn.textContent;
+  var timer = null, idx = 0;
+
+  function draw(pat) {
+    var flat = String(pat).replace(/\n/g, '');
+    cells.forEach(function (c, i) { c.classList.toggle('on', flat.charAt(i) === '#'); });
+  }
+  function stop() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    idx = 0;
+    draw(frames[0][0]);
+    btn.textContent = idleLabel;
+    box.classList.remove('playing');
+  }
+  function tick() {
+    draw(frames[idx][0]);
+    var ms = frames[idx][1];
+    idx++;
+    if (idx >= frames.length) {
+      if (!loop) { timer = setTimeout(stop, ms); return; }
+      idx = 0;
+    }
+    timer = setTimeout(tick, ms);
+  }
+
+  draw(frames[0][0]);
+  btn.onclick = function () {
+    if (timer) { stop(); return; }
+    box.classList.add('playing');
+    btn.textContent = '⏹ 停下來';
+    idx = 0;
+    tick();
+  };
+
+  // 這張卡被折起來就停
+  var card = box.closest ? box.closest('.step') : null;
+  if (card && window.MutationObserver) {
+    new MutationObserver(function () {
+      if (card.classList.contains('folded') && timer) stop();
+    }).observe(card, { attributes: true, attributeFilter: ['class'] });
+  }
+});
+
 // ===== 積木圖鑑 101 =====
 // 兩種狀態：seen（翻圖鑑點過）和 got（測驗答對過）。進度條算的是 got。
 (function () {

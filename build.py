@@ -5,7 +5,7 @@
 積木文字全部對齊 makecode.microbit.org 繁體中文版的實際畫面（實測 v9.0.12）。
 要改積木文字前，請先去真的編輯器確認一次，不要憑印象寫。
 """
-import os, re, html
+import os, re, json, html
 REPO = os.path.dirname(os.path.abspath(__file__))
 
 # ===== 課程大綱（單一來源，側邊欄與首頁都從這裡長出來）=====
@@ -82,6 +82,9 @@ def lesson_no(L):
 def sidebar(cur):
     rows = ['<nav class="outline"><div class="cap">🗺️ 課程地圖</div>']
     # 圖鑑和遊戲區都不是「課」，所以不放進 LESSONS（免得課程編號跟著跑掉），單獨釘在最上面。
+    cl = " cur" if cur == "learn" else ""
+    rows.append(f'<a class="lrow tool{cl}" href="learn.html"><span class="em">🧱</span>'
+                f'<span>積木入門</span></a>')
     cb = " cur" if cur == "blocks" else ""
     rows.append(f'<a class="lrow tool{cb}" href="blocks.html"><span class="em">🔍</span>'
                 f'<span>積木圖鑑</span></a>')
@@ -117,6 +120,18 @@ def page(cur, body, title, lesson_attr=""):
 # 注意音效一律用 tone_ts()：舊 API music.playTone() 會被畫成「演奏 音階…持續」，跟工具箱不一樣。
 def mc(ts):
     return f'<div class="prog mc"><pre><code class="lang-block">{esc(ts)}</code></pre></div>'
+
+def player(frames, loop=False, label="▶️ 按一下看它動"):
+    """小小 LED 播放器：frames = [(圖樣, 停留毫秒), ...]。
+
+    MakeCode 官方模擬器不能嵌在第三方網站（實測 /---run 會回「Oops, wrong arguments」），
+    所以自己畫。只有能忠實重現的積木才給播放鍵——寧可少一顆按鈕，也不要演錯的動畫。
+    """
+    data = json.dumps([[pat, ms] for pat, ms in frames], ensure_ascii=False)
+    grid = "".join("<i></i>" for _ in range(25))
+    return (f'<div class="ledplay" data-frames="{esc(data)}" data-loop="{1 if loop else 0}">'
+            f'<span class="leds">{grid}</span>'
+            f'<button class="playbtn" type="button">{esc(label)}</button></div>')
 
 def mcx(xml):
     """TypeScript 畫不出來的「單獨一塊」（例如 0 = 0、true、變數 x、0 + 0、空的當啟動時）用 Blockly XML。"""
@@ -311,7 +326,10 @@ def leds(pattern, cap=""):
     capt = f'<span class="led-cap">{esc(cap)}</span>' if cap else ""
     return f'<span class="led-wrap"><span class="leds">{cells}</span>{capt}</span>'
 
-HEART = "#.#.#\n#####\n#####\n.###.\n..#.."
+# 實測自 MakeCode 渲染出來的 IconNames.Heart（不是憑印象畫的）
+HEART = ".#.#.\n#####\n#####\n.###.\n..#.."
+ICON_HAPPY = ".....\n.#.#.\n.....\n#...#\n.###."
+ICON_SAD   = ".....\n.#.#.\n.....\n.###.\n#...#"
 SMILE = "#...#\n.....\n#...#\n#...#\n.###."
 SAD   = "#...#\n.....\n#...#\n.###.\n#...#"
 DUCK  = ".##..\n####.\n.####\n.###.\n....."
@@ -542,6 +560,10 @@ def build_blocks():
 
         + goal("🗂️", f"把 <b>{total} 塊</b>積木看熟，以後上課<b>不用一直找</b>。")
 
+        + note("🧱 還不太認得積木？",
+               "這一頁是<b>查東西用</b>的，一次攤開 48 塊。<br>"
+               "如果還不熟，先去 <a href=\"learn.html\">積木入門</a> 一塊一塊看，那邊有帶著做。")
+
         + '<p>micro:bit 的積木放在<b>九個抽屜</b>裡。</p>'
         '<p>每個抽屜有自己的<b>顏色</b>。顏色記起來，就找得很快 🎨</p>'
 
@@ -577,6 +599,143 @@ def build_blocks():
     open(os.path.join(REPO, "blocks.html"), "w").write(
         page("blocks", body, "積木圖鑑：認識所有積木", ' data-lesson="blocks"'))
 
+# ================= 積木入門（learn.html）=================
+# 圖鑑是「已經認得積木的人拿來查」的；這條路是「還不認得」的孩子一塊一塊走。
+# 每一塊 = 一張步驟卡，所以專注模式（一次只展開一塊）和打勾進度自動就有。
+# play 欄位：None 代表不給播放鍵（我們沒把握忠實重現，例如跑馬燈文字、聲音、數字字形）。
+LEARN = [
+    ("basic.onStart", "一開機就做一次裡面的事。所有程式都從它開始。", None,
+     "開一個新專案，它<b>本來就在畫面上</b>，不用去抽屜找。",
+     "找到那塊寫著「當啟動時」的積木 → 打勾 ✅"),
+
+    ("basic.showIcon", "從現成的小圖裡挑一張，畫在 25 顆燈上。",
+     ([(EMPTY, 250), (HEART, 1600)], False),
+     "把它拖進「當啟動時」裡面，點圖案選<b>愛心</b>。",
+     "假的那台亮出一顆愛心 ❤️"),
+
+    ("basic.showLeds", "自己點格子畫圖——想畫什麼都可以。",
+     ([(SMILE, 1600)], False),
+     "拖進「當啟動時」，在積木上的格子點出一張笑臉。",
+     "假的那台出現你畫的圖 😊"),
+
+    ("basic.clearScreen", "把 25 顆燈全部關掉，畫面變黑。",
+     ([(HEART, 900), (EMPTY, 900)], True),
+     "放在「顯示圖示」的<b>下面</b>。",
+     "圖案亮一下就被擦掉了"),
+
+    ("basic.pause", "停在現在的畫面一下下，再做下一件事。<b>500 就是半秒</b>。",
+     ([(HEART, 1000), (EMPTY, 250)], True),
+     "放在「顯示圖示」和「清空畫面」<b>中間</b>，數字改成 <code>500</code>。",
+     "圖案會<b>停一下</b>才被擦掉"),
+
+    ("basic.forever", "裡面的事<b>一直做、不會停</b>。做動畫都靠它。",
+     ([(SMILE, 500), (SAD, 500)], True),
+     "它跟「當啟動時」一樣，一開始就在畫面上。把兩張圖和兩個「暫停」放進去。",
+     "兩張圖<b>一直輪流</b>換 🎞️"),
+
+    ("basic.showNumber", "在燈上寫一個數字。", None,
+     "拖進「當啟動時」，把 <code>0</code> 改成你的年紀。",
+     "數字出現在假的那台上 🔢"),
+
+    ("basic.showString", "讓字<b>一個一個滑過去</b>（要用英文字母）。", None,
+     "拖進「當啟動時」，把 <code>Hello!</code> 改成你的名字。",
+     "名字一個字母一個字母滑過去 ➡️"),
+
+    ("event.onButton", "你<b>按 A</b>，它才做裡面的事。平常就乖乖等你。",
+     ([(EMPTY, 1), (HEART, 1500)], False, "🅰️ 按按鈕看看"),
+     "拖到<b>空白的地方</b>，不用放進「當啟動時」。裡面放一個「顯示圖示」。",
+     "點 A → 圖案跳出來"),
+
+    ("event.onGesture", "你<b>搖它</b>，它才做裡面的事。",
+     ([(EMPTY, 1), (SMILE, 1500)], False, "🤸 搖一搖看看"),
+     "拖到空白的地方，裡面放一個「顯示圖示」。",
+     "搖一搖（假的那台按 SHAKE）→ 圖案跳出來"),
+
+    ("math.random", "抽籤 🎰 每次給你一個<b>不一定</b>的數字。", None,
+     "先拖到空白的地方放著，把 <code>10</code> 改成 <code>6</code>。",
+     "積木上寫著「隨機取數 0 到 6」"),
+
+    ("var.set", "把盒子裡的數字<b>整個換掉</b>。", None,
+     "先按「建立一個變數…」做一個叫 <code>x</code> 的盒子，再把這塊拖進「當啟動時」。",
+     "畫面沒變化——這一步是在做準備，是正常的 👍"),
+
+    ("var.change", "在盒子<b>原本的數字上再加</b>。加 <code>-1</code> 就是減 1。", None,
+     "放進一頂「當按鈕 A 被按下」的帽子裡。",
+     "點 A 還沒反應，因為還沒叫它秀出來"),
+
+    ("var.get", "圓圓的那塊，就是<b>盒子裡現在的數字</b>。它可以塞進別的積木的白框框。", None,
+     "把它<b>拖進</b>「顯示數字」的白色框框裡。",
+     "點 A → 1、2、3⋯⋯它記住了！"),
+
+    ("logic.ifElse", "一個<b>岔路口</b>：條件成立走上面，不成立走下面。每次<b>只走一條</b>。", None,
+     "要挑<b>有「否則」</b>的那一塊（抽屜裡有兩塊很像的）。",
+     "架子搭好了，裡面還空空的"),
+]
+
+LEARN_NAME = {
+    "basic.onStart":     ("當啟動時", "當啟動時"),
+    "basic.showIcon":    ("顯示圖示", "顯示圖示"),
+    "basic.showLeds":    ("顯示指示燈", "顯示指示燈"),
+    "basic.clearScreen": ("清空畫面", "清空畫面"),
+    "basic.pause":       ("暫停 100 毫秒", "暫停 100 毫秒"),
+    "basic.forever":     ("重複無限次", "重複無限次"),
+    "basic.showNumber":  ("顯示數字", "顯示數字"),
+    "basic.showString":  ("顯示文字", "顯示文字"),
+    "event.onButton":    ("當按鈕 A 被按下", "當按鈕 A 被按下"),
+    "event.onGesture":   ("當姿勢 晃動 發生", "當姿勢 晃動 發生"),
+    "math.random":       ("隨機取數", "隨機取數 0 到 10"),
+    "var.set":           ("變數 x 設為", None),
+    "var.change":        ("變數 x 改變", None),
+    "var.get":           ("圓圓的 x", None),
+    "logic.ifElse":      ("如果…那麼…否則", "如果 … 那麼 … 否則"),
+}
+
+def build_learn():
+    cards = []
+    for i, (bid, oneline, play, todo, look_txt) in enumerate(LEARN, 1):
+        b = _block_by_id(bid)
+        title, findname = LEARN_NAME[bid]
+        body = render_dex_block(b) + f'<p>{oneline}</p>'
+        if play:
+            frames, loop = play[0], play[1]
+            label = play[2] if len(play) > 2 else "▶️ 按一下看它動"
+            body += player(frames, loop, label)
+        else:
+            body += note("👀 這塊要配別的積木才看得到",
+                         "它自己不會在燈上畫東西，所以這裡沒有播放鍵——"
+                         "等一下到 MakeCode 拼起來就看得到了。")
+        if findname:
+            body += find(b["cat"], findname, more=b.get("more", False))
+        else:
+            body += ('<div class="find">' + dot("var") +
+                     '去 <b>變數</b> 抽屜（深紅色的）——'
+                     '要先按<b>「建立一個變數…」</b>做一個盒子，這些積木才會出現</div>')
+        body += f'<p><b>換你做：</b>{todo}</p>' + look(look_txt)
+        cards.append(step(i, title, body))
+
+    body = (
+        '<div class="crumb"><a href="index.html">課程地圖</a> / 積木入門</div>'
+        '<span class="eyebrow">一次認識一塊</span>' + done_badge() +
+        '<h1>🧱 積木入門</h1>'
+        + goal("🧱", f"把最常用的 <b>{len(LEARN)} 塊</b>積木，<b>一次認識一塊</b>。")
+        + '<p>不用全部背起來。</p>'
+        '<p>每一塊都：<b>看它長怎樣 → 知道它會做什麼 → 自己拖一次 → 打勾</b> ✅</p>'
+        + note("💡 旁邊開著 MakeCode 一起做",
+               "網址 <code>makecode.microbit.org</code>，按<b>「新增專案」</b>。<br>"
+               "一邊看這頁、一邊在那邊拖，學得最快。")
+        + "".join(cards)
+        + '<div class="goal win"><div class="big">🎉</div><div>'
+        '<h3>15 塊都認識了！</h3>'
+        '<p>這些就是前面幾課會一直用到的積木。<br>'
+        '之後忘記哪一塊長怎樣，去 <a href="blocks.html">積木圖鑑</a> 查就好。<br>'
+        '準備好就從<b>準備篇</b>開始闖關 🚀</p></div></div>'
+        + '<div class="nav"><a class="btn ghost" href="index.html">← 回地圖</a>'
+        '<span class="sp"></span>'
+        '<a class="btn g" href="l0.html">準備篇：送進板子 →</a></div>'
+    )
+    open(os.path.join(REPO, "learn.html"), "w").write(
+        page("learn", body, "積木入門：一次認識一塊", ' data-lesson="learn"'))
+
 # ================= 首頁 =================
 def build_index():
     cards = ['<div class="grid">']
@@ -607,6 +766,11 @@ def build_index():
         '② 拼完<b>長什麼樣子</b><br>'
         '③ 螢幕上<b>應該看到什麼</b>——看到了才往下走 👀</div>'
         '<h2>認識積木 ＆ 做遊戲 🎒</h2>'
+        '<a class="bigcard learn" href="learn.html"><span class="em">🧱</span>'
+        '<span class="tx"><b>積木入門</b>'
+        f'<span>還不太認得積木？<b>一次認識一塊</b>，共 {len(LEARN)} 塊。<br>'
+        '看它動一次、自己拖一次，做完才往下一塊 ✅</span></span>'
+        '<span class="go">從這裡開始 →</span></a>'
         '<a class="bigcard" href="blocks.html"><span class="em">🔍</span>'
         '<span class="tx"><b>積木圖鑑</b>'
         f'<span>把 {len(BLOCKS)} 塊積木看熟，上課就不用一直找。<br>'
@@ -719,7 +883,7 @@ def build_l1():
              '<p>點積木上的<b>圖案</b>，選一個<b>笑臉</b>。</p>'
              + mcp("basic.showIcon(IconNames.Happy)")
              + look("愛心變成笑臉 😀")
-             + leds(SMILE, "笑臉")) +
+             + leds(ICON_HAPPY, "笑臉")) +
 
         step(3, "拖一塊「顯示文字」下來",
              find("basic", "顯示文字", "（積木上本來寫 <code>Hello!</code>）")
@@ -846,7 +1010,7 @@ def build_l3():
              + '<p>拖進帽子裡面，圖案選<b>笑臉</b>。</p>'
              + mcp(ts_button("A", "basic.showIcon(IconNames.Happy)"))
              + look("在假的那台上，用滑鼠<b>點 A 按鈕</b> → 笑臉跳出來 😀")
-             + leds(SMILE, "按 A")) +
+             + leds(ICON_HAPPY, "按 A")) +
 
         step(3, "再拖一頂帽子，改成 B",
              '<p>再拖一塊 <b>「當按鈕 A 被按下」</b> 出來。</p>'
@@ -858,7 +1022,7 @@ def build_l3():
              '<p>拖一塊「顯示圖示」進去，圖案選<b>哭臉</b>。</p>'
              + mcp(ts_button("B", "basic.showIcon(IconNames.Sad)"))
              + look("點 A → 笑臉；點 B → 哭臉。")
-             + leds(SAD, "按 B")
+             + leds(ICON_SAD, "按 B")
              + adult("兩頂帽子不會打架——micro:bit 同時記住兩個規則，按哪顆就做哪件事。<br>"
                      "這是「事件」的核心：程式不是從頭跑到尾，而是<b>等你觸發</b>。")) +
 
@@ -943,7 +1107,7 @@ def build_l4():
              '<p>把它<b>拖進</b>「顯示數字」的白色框框裡。</p>'
              + mcp(ts_button("A", "count += 1", "basic.showNumber(count)"))
              + look("點 A → <b>1</b>，再點 → <b>2</b>，再點 → <b>3</b>⋯⋯它記住了！")
-             + leds(THREE, "點了 3 下")
+             + ""
              + adult("圓形積木要「塞進」白框框，這個拖放動作對小手是難的。"
                      "如果對不準，可以先把「顯示數字」拉到空白處放大空間，塞好再拖回帽子裡。")) +
 
@@ -1091,7 +1255,7 @@ def build_l6():
              '<p>它們會<b>合體</b>變成一塊。</p>'
              + mcp(ts_gesture("Shake", "basic.showNumber(randint(1, 6))"))
              + look("搖一搖 → 跳出一個數字！再搖會<b>變別的</b> 🎲")
-             + leds(THREE, "搖出 3")) +
+             + "") +
 
         step(5, "做一個盒子記住點數",
              '<p>去 <b>變數</b> 抽屜，建立一個新盒子叫 <code>dice</code>。</p>'
@@ -1399,7 +1563,7 @@ def build_l9():
              + mcp(ts_forever("basic.pause(5000)", "happy += -1",
                              ts_if("happy > 3", ("basic.showIcon(IconNames.Happy)",), ("basic.showIcon(IconNames.Sad)",))))
              + look("放著不管 → 牠會變<b>難過</b> 😢。餵牠或搖牠 → 又<b>開心</b> 😀")
-             + leds(SMILE, "有照顧") + leds(SAD, "太久沒理")
+             + leds(ICON_HAPPY, "有照顧") + leds(ICON_SAD, "太久沒理")
              + adult("這一課的重點不是新積木，是<b>四塊帽子同時在跑</b>："
                      "開機、按 A、搖一搖、重複無限次。<br>"
                      "孩子最常卡在「為什麼不用把它們接在一起」——"
@@ -2635,6 +2799,7 @@ def main():
         bad = [u for u in g["uses"] if u not in ids]
         assert not bad, f"{g['id']} 的 uses 有不存在的積木 id：{bad}"
     build_index()
+    build_learn()
     build_blocks()
     build_games_hub()
     build_e1(); build_e2()
@@ -2642,7 +2807,7 @@ def main():
     build_l0(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6()
     build_l7(); build_l8(); build_l9(); build_l10(); build_l11(); build_l12()
     opened = [L['id'] for L in LESSONS if L['status'] == 'open']
-    print("已生成：index.html, blocks.html, 101.html, "
+    print("已生成：index.html, learn.html, blocks.html, 101.html, "
           + "/".join(g["id"] for g in GAMES) + ".html, "
           + ", ".join(f"{i}.html" for i in opened))
     print(f"開放課程（{len(opened)}）：{opened}")
