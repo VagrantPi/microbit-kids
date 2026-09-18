@@ -121,16 +121,28 @@ def page(cur, body, title, lesson_attr=""):
 def mc(ts):
     return f'<div class="prog mc"><pre><code class="lang-block">{esc(ts)}</code></pre></div>'
 
-def player(frames, loop=False, label="▶️ 按一下看它動"):
+def player(frames, loop=False, label="▶️ 按一下看它動", repeat=0):
     """小小 LED 播放器：frames = [(圖樣, 停留毫秒), ...]。
 
     MakeCode 官方模擬器不能嵌在第三方網站（實測 /---run 會回「Oops, wrong arguments」），
     所以自己畫。只有能忠實重現的積木才給播放鍵——寧可少一顆按鈕，也不要演錯的動畫。
+    repeat=N：整串播 N 遍就自己停，剛好跟「重複無限次」對照。
     """
     data = json.dumps([[pat, ms] for pat, ms in frames], ensure_ascii=False)
     grid = "".join("<i></i>" for _ in range(25))
-    return (f'<div class="ledplay" data-frames="{esc(data)}" data-loop="{1 if loop else 0}">'
+    return (f'<div class="ledplay" data-frames="{esc(data)}" data-loop="{1 if loop else 0}"'
+            f' data-repeat="{repeat}">'
             f'<span class="leds">{grid}</span>'
+            f'<button class="playbtn" type="button">{esc(label)}</button></div>')
+
+def sound_player(notes, label="🔊 按一下聽聲音"):
+    """真的會響的小播放器：notes = [(赫茲, 毫秒 或 None), ...]。
+
+    毫秒 None = 一直響到按停——「演奏 音階」就是這樣，正是第 8 課要孩子避開的坑。
+    頻率一律取 NOTE_HZ，跟積木上的音名對得起來，不自己另編數字。
+    """
+    data = json.dumps([[hz, ms] for hz, ms in notes])
+    return (f'<div class="soundplay" data-notes="{esc(data)}">'
             f'<button class="playbtn" type="button">{esc(label)}</button></div>')
 
 def mcx(xml):
@@ -670,6 +682,59 @@ LEARN = [
     ("logic.ifElse", "一個<b>岔路口</b>：條件成立走上面，不成立走下面。每次<b>只走一條</b>。", None,
      "要挑<b>有「否則」</b>的那一塊（抽屜裡有兩塊很像的）。",
      "架子搭好了，裡面還空空的"),
+
+    # ---- 第二階：第 6～10 課會遇到的 ----
+    ("loop.repeat", "裡面的事<b>做幾遍就停</b>。跟「重複無限次」不一樣，它<b>數得完</b>。",
+     ([(HEART, 380), (EMPTY, 260)], False, "▶️ 看它做 4 遍就停", 4),
+     "拖進「當啟動時」，<code>4</code> 先不用改。",
+     "亮 <b>4 下就停了</b>，不會一直閃"),
+
+    ("logic.if", "只有一條路：條件成立才做裡面的事，<b>不成立就跳過</b>。", None,
+     "抽屜裡有兩塊很像，這次挑<b>沒有「否則」</b>的那一塊。",
+     "架子搭好了，六角形的洞還空著"),
+
+    ("logic.eq", "問一句：<b>這兩個一樣嗎？</b>一樣就回答「是」。", None,
+     "把它拖進「如果」的<b>六角形洞</b>裡。",
+     "六角形的洞剛剛好被塞滿 ✅"),
+
+    ("logic.lt", "問一句：<b>左邊比右邊小嗎？</b>點中間的選單還可以換成 <b>&gt;</b>。", None,
+     "拖出來放旁邊，點一下中間的選單，看看有哪些可以換。",
+     "選單裡有 ＝、＜、＞ 可以挑"),
+
+    ("basic.showArrow", "在燈上畫一個<b>指方向的箭頭</b>：北是上、南是下、西是左、東是右。", None,
+     "拖進「當啟動時」，選單選<b>西</b>（就是左邊）。",
+     "假的那台出現一個指左邊的箭頭 ⬅️"),
+
+    ("event.lightLevel", "圓圓的一塊，回答<b>現在有多亮</b>：<b>0</b> 是全黑、<b>255</b> 是很亮。", None,
+     "把它拖進「顯示數字」的白色框框裡。",
+     "用手<b>蓋住板子</b>，數字就變小 🌑"),
+
+    ("event.temperature", "圓圓的一塊，回答<b>現在幾度</b>（攝氏）。", None,
+     "把它拖進「顯示數字」的白色框框裡。",
+     "秀出室溫，大概二十幾度 🌡️"),
+
+    ("music.playTone", "彈一個音，<b>彈完會自己停</b>。上面是英文，認得 <b>中音 C</b> 就對了。",
+     ("sound", [(NOTE_HZ["中音 C"], 700)], "🔊 按一下聽「叮」一聲"),
+     "在<b>音高（Tone）</b>那一區拿<b>第一塊</b>（長長的英文那塊），什麼都不用改。",
+     "「叮」一聲<b>就停了</b> 🎵"),
+
+    ("music.ringTone", "也是彈一個音，但它<b>不會自己停</b>，會一直叫下去。",
+     ("sound", [(NOTE_HZ["中音 C"], None)], "🔊 按一下（它不會自己停！）"),
+     "這塊<b>先別用</b>。認得它比較短、寫中文就好——很多人會拿錯成這塊。",
+     "按下去<b>一直響</b>，要按「讓它閉嘴」才停 🔇"),
+
+    ("radio.setGroup", "先<b>對頻道</b>。兩台要講話，號碼<b>得一樣</b>，不然聽不到。", None,
+     "放進「當啟動時」，<b>兩台</b>板子都要放，號碼設一樣的。",
+     "畫面沒變化——這一步是在做準備，正常 👍"),
+
+    ("radio.sendNumber", "把一個數字<b>喊出去</b>，附近同頻道的板子都聽得到。", None,
+     "放進一頂「當按鈕 A 被按下」的帽子裡。",
+     "自己這台看不出變化，要另一台才看得到 📡"),
+
+    ("radio.onNumber", "一頂<b>耳朵帽子</b>：聽到數字就做裡面的事，"
+     "<code>receivedNumber</code> 就是聽到的那個數字。", None,
+     "拖到空白的地方，裡面放「顯示數字」，再把 <code>receivedNumber</code> 拖進白框框。",
+     "要<b>兩台</b>才玩得起來：一台按 A，另一台亮出數字 🎉"),
 ]
 
 LEARN_NAME = {
@@ -688,22 +753,63 @@ LEARN_NAME = {
     "var.change":        ("變數 x 改變", None),
     "var.get":           ("圓圓的 x", None),
     "logic.ifElse":      ("如果…那麼…否則", "如果 … 那麼 … 否則"),
+    "loop.repeat":       ("重複 4 次", "重複 4 次 執行"),
+    "logic.if":          ("如果…那麼", "如果 … 那麼"),
+    "logic.eq":          ("＝（一樣嗎）", "="),
+    "logic.lt":          ("＜（比較小）", "<"),
+    "basic.showArrow":   ("顯示箭頭", "顯示箭頭"),
+    "event.lightLevel":  ("光線感測值", "光線感測值"),
+    "event.temperature": ("溫度感測值", "溫度感測值 (°C)"),
+    "music.playTone":    ("play tone（會自己停）", "play tone 中音 C for 1 拍 until done"),
+    "music.ringTone":    ("演奏 音階（不會停）", "演奏 音階 中音 C"),
+    "radio.setGroup":    ("廣播群組設為", "廣播群組設為 1"),
+    "radio.sendNumber":  ("廣播發送數字", "廣播發送數字 0"),
+    "radio.onNumber":    ("當收到廣播數字", "當收到廣播數字 receivedNumber"),
 }
+
+# 沒有播放鍵的積木，預設說「要配別的積木才看得到」；理由不一樣的在這裡各別講清楚，
+# 免得孩子以為是網頁壞了。尤其「顯示箭頭」——我們沒有可信的箭頭圖樣，寧可不畫。
+LEARN_NOPLAY = {
+    "basic.showArrow": ("🧭 箭頭長什麼樣，這頁不畫給你看",
+                        "我們手上<b>沒有可靠的箭頭圖樣</b>，不想畫錯騙你——"
+                        "到 MakeCode 選一個方向按一下，真的那台就會秀給你看。"),
+    "event.lightLevel": ("🔢 它給的是<b>數字</b>，不是圖",
+                         "所以這裡沒有播放鍵。等一下把它塞進「顯示數字」就看得到了。"),
+    "event.temperature": ("🔢 它給的是<b>數字</b>，不是圖",
+                          "所以這裡沒有播放鍵。等一下把它塞進「顯示數字」就看得到了。"),
+    "radio.setGroup": ("📡 廣播要<b>兩台</b>才看得出效果",
+                       "一台自己玩不出來，所以這裡沒有播放鍵。"),
+    "radio.sendNumber": ("📡 廣播要<b>兩台</b>才看得出效果",
+                         "一台自己玩不出來，所以這裡沒有播放鍵。"),
+    "radio.onNumber": ("📡 廣播要<b>兩台</b>才看得出效果",
+                       "一台自己玩不出來，所以這裡沒有播放鍵。"),
+}
+
+STAGE2_FROM = "loop.repeat"      # 從這一塊開始是第二階
 
 def build_learn():
     cards = []
     for i, (bid, oneline, play, todo, look_txt) in enumerate(LEARN, 1):
+        if bid == STAGE2_FROM:
+            cards.append(stage("🎵", "第二階",
+                               "第一階都認識了 🎉 這一批會在<b>第 6～10 課</b>遇到："
+                               "數得完的迴圈、問句、感測值、聲音和廣播。"))
         b = _block_by_id(bid)
         title, findname = LEARN_NAME[bid]
         body = render_dex_block(b) + f'<p>{oneline}</p>'
-        if play:
+        if play and play[0] == "sound":
+            body += sound_player(play[1], play[2])
+        elif play:
             frames, loop = play[0], play[1]
             label = play[2] if len(play) > 2 else "▶️ 按一下看它動"
-            body += player(frames, loop, label)
+            repeat = play[3] if len(play) > 3 else 0
+            body += player(frames, loop, label, repeat)
         else:
-            body += note("👀 這塊要配別的積木才看得到",
-                         "它自己不會在燈上畫東西，所以這裡沒有播放鍵——"
-                         "等一下到 MakeCode 拼起來就看得到了。")
+            hd, txt = LEARN_NOPLAY.get(bid, (
+                "👀 這塊要配別的積木才看得到",
+                "它自己不會在燈上畫東西，所以這裡沒有播放鍵——"
+                "等一下到 MakeCode 拼起來就看得到了。"))
+            body += note(hd, txt)
         if findname:
             body += find(b["cat"], findname, more=b.get("more", False))
         else:
@@ -725,7 +831,7 @@ def build_learn():
                "一邊看這頁、一邊在那邊拖，學得最快。")
         + "".join(cards)
         + '<div class="goal win"><div class="big">🎉</div><div>'
-        '<h3>15 塊都認識了！</h3>'
+        f'<h3>{len(LEARN)} 塊都認識了！</h3>'
         '<p>這些就是前面幾課會一直用到的積木。<br>'
         '之後忘記哪一塊長怎樣，去 <a href="blocks.html">積木圖鑑</a> 查就好。<br>'
         '準備好就從<b>準備篇</b>開始闖關 🚀</p></div></div>'

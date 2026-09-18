@@ -218,8 +218,9 @@ document.querySelectorAll('.ledplay').forEach(function (box) {
   try { frames = JSON.parse(box.getAttribute('data-frames')); } catch (e) { return; }
   if (!frames || !frames.length || !btn) return;
   var loop = box.getAttribute('data-loop') === '1';
+  var rep = parseInt(box.getAttribute('data-repeat') || '0', 10) || 0;
   var idleLabel = btn.textContent;
-  var timer = null, idx = 0;
+  var timer = null, idx = 0, rounds = 0;
 
   function draw(pat) {
     var flat = String(pat).replace(/\n/g, '');
@@ -228,6 +229,7 @@ document.querySelectorAll('.ledplay').forEach(function (box) {
   function stop() {
     if (timer) { clearTimeout(timer); timer = null; }
     idx = 0;
+    rounds = 0;
     draw(frames[0][0]);
     btn.textContent = idleLabel;
     box.classList.remove('playing');
@@ -237,7 +239,9 @@ document.querySelectorAll('.ledplay').forEach(function (box) {
     var ms = frames[idx][1];
     idx++;
     if (idx >= frames.length) {
-      if (!loop) { timer = setTimeout(stop, ms); return; }
+      rounds++;
+      // data-repeat：播完 N 遍就自己停（「重複 4 次」）。沒給 data-repeat 時行為跟以前一樣。
+      if (rep ? rounds >= rep : !loop) { timer = setTimeout(stop, ms); return; }
       idx = 0;
     }
     timer = setTimeout(tick, ms);
@@ -249,6 +253,7 @@ document.querySelectorAll('.ledplay').forEach(function (box) {
     box.classList.add('playing');
     btn.textContent = '⏹ 停下來';
     idx = 0;
+    rounds = 0;
     tick();
   };
 
@@ -257,6 +262,75 @@ document.querySelectorAll('.ledplay').forEach(function (box) {
   if (card && window.MutationObserver) {
     new MutationObserver(function () {
       if (card.classList.contains('folded') && timer) stop();
+    }).observe(card, { attributes: true, attributeFilter: ['class'] });
+  }
+});
+
+// ===== 聲音播放器 =====
+// 「play tone」和「演奏 音階」在紙上看不出差別，所以這裡真的讓它響：
+// 頻率直接用積木上那個音名的赫茲，playTone 會自己停、ringTone 不會（要按停）。
+// AudioContext 必須等使用者點過才能建立，所以第一次按下去才 new。
+var _ac = null;
+function learnAudio() {
+  if (!_ac) {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    _ac = new AC();
+  }
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+
+document.querySelectorAll('.soundplay').forEach(function (box) {
+  var btn = box.querySelector('.playbtn');
+  var notes;
+  try { notes = JSON.parse(box.getAttribute('data-notes')); } catch (e) { return; }
+  if (!notes || !notes.length || !btn) return;
+  var idleLabel = btn.textContent;
+  var timer = null, osc = null, gain = null;
+
+  function silence() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (osc) { try { osc.stop(); } catch (e) {} osc.disconnect(); osc = null; }
+    if (gain) { gain.disconnect(); gain = null; }
+  }
+  function stop() {
+    silence();
+    btn.textContent = idleLabel;
+    box.classList.remove('playing');
+  }
+  function play(i) {
+    var ac = learnAudio();
+    if (!ac) { stop(); return; }
+    silence();
+    gain = ac.createGain();
+    gain.gain.setValueAtTime(0, ac.currentTime);
+    gain.gain.linearRampToValueAtTime(0.12, ac.currentTime + 0.01);   // 不要「啪」一聲
+    gain.connect(ac.destination);
+    osc = ac.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = notes[i][0];
+    osc.connect(gain);
+    osc.start();
+    var ms = notes[i][1];
+    if (ms == null) return;              // null = 一直響，要按停（ringTone）
+    timer = setTimeout(function () {
+      if (i + 1 < notes.length) play(i + 1); else stop();
+    }, ms);
+  }
+
+  btn.onclick = function () {
+    if (box.classList.contains('playing')) { stop(); return; }
+    box.classList.add('playing');
+    btn.textContent = '⏹ 讓它閉嘴';
+    play(0);
+  };
+
+  // 這張卡被折起來就閉嘴
+  var card = box.closest ? box.closest('.step') : null;
+  if (card && window.MutationObserver) {
+    new MutationObserver(function () {
+      if (card.classList.contains('folded') && box.classList.contains('playing')) stop();
     }).observe(card, { attributes: true, attributeFilter: ['class'] });
   }
 });
