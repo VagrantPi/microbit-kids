@@ -342,6 +342,81 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
   }
 });
 
+// ===== 偷看答案前先打字 =====
+// 學生會手比腦快，一路點開答案照抄，「先自己拼一次」就跳過了。
+// 這道關卡要他打 answer 才給看。說清楚：這是減速丘不是鎖——
+// 答案本來就在 HTML 裡，會按 F12 的人照樣看得到，我們擋的是「順手一點」。
+// 只擋 .optional.answer，其他選讀（第 8 課的音名那種）不受影響。
+(function () {
+  var boxes = document.querySelectorAll('details.optional.answer');
+  if (!boxes.length) return;
+  var WORD = 'answer';
+  var gate = null, onPass = null;
+
+  function build() {
+    gate = document.createElement('div');
+    gate.className = 'gate';
+    gate.innerHTML =
+      '<div class="gbox" role="dialog" aria-modal="true" aria-label="想看答案？">' +
+        '<h3>🙈 想看答案？</h3>' +
+        '<p>先自己拼拼看，拼不出來再看 👍</p>' +
+        '<p class="ghint">在下面打上 <b>answer</b></p>' +
+        '<input class="gin" type="text" autocapitalize="none" autocorrect="off" ' +
+               'spellcheck="false" aria-label="打 answer">' +
+        '<p class="gerr" hidden>打錯了，再試一次 🙈</p>' +
+        '<div class="gbtns">' +
+          '<button class="btn ghost gno" type="button">再想一下</button>' +
+          '<button class="btn g gyes" type="button">看答案</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(gate);
+    gate.addEventListener('click', function (e) { if (e.target === gate) close(); });
+    gate.querySelector('.gno').onclick = close;
+    gate.querySelector('.gyes').onclick = check;
+    gate.querySelector('.gin').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); check(); }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && gate.classList.contains('on')) close();
+    });
+  }
+
+  function open(cb) {
+    if (!gate) build();
+    onPass = cb;
+    var input = gate.querySelector('.gin');
+    input.value = '';
+    gate.querySelector('.gerr').hidden = true;
+    gate.classList.add('on');
+    setTimeout(function () { input.focus(); }, 30);
+  }
+
+  function close() { if (gate) gate.classList.remove('on'); onPass = null; }
+
+  function check() {
+    // trim ＋ 轉小寫：手機自動大寫成 Answer 也算對，我們不是在考打字
+    var v = gate.querySelector('.gin').value.trim().toLowerCase();
+    if (v !== WORD) {
+      gate.querySelector('.gerr').hidden = false;
+      gate.querySelector('.gin').select();
+      return;
+    }
+    var cb = onPass;
+    close();
+    if (cb) cb();
+  }
+
+  boxes.forEach(function (d) {
+    var s = d.querySelector('summary');
+    if (!s) return;
+    s.addEventListener('click', function (e) {
+      if (d.open) return;          // 收起來不用擋，只擋「要打開」
+      e.preventDefault();          // 先不要展開，等他打對
+      open(function () { d.open = true; });
+    });
+  });
+})();
+
 // ===== 積木圖鑑 101 =====
 // 兩種狀態：seen（翻圖鑑點過）和 got（測驗答對過）。進度條算的是 got。
 (function () {

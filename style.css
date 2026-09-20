@@ -421,3 +421,24 @@ html[data-theme=dark] .moretag{background:#3a2f14;border-color:#7a5a2a;color:#f0
 /* 首頁「積木入門」大卡 */
 .bigcard.learn{background:linear-gradient(120deg,#e8fff1,#e6f4ff);border-color:#8fd8b0}
 html[data-theme=dark] .bigcard.learn{background:linear-gradient(120deg,#14311f,#16283f);border-color:#2f6b4a}
+
+/* ================= 偷看答案的關卡 ================= */
+/* 要打 answer 才展開。只擋 .optional.answer，其他選讀不受影響（邏輯在 app.js）*/
+.gate{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:rgba(20,16,40,.55);padding:18px}
+.gate.on{display:flex}
+.gate .gbox{background:var(--card);color:var(--ink);border:3px solid var(--line);
+  border-radius:20px;padding:20px 20px 16px;width:100%;max-width:340px;
+  box-shadow:0 18px 50px rgba(0,0,0,.32)}
+.gate h3{margin:0 0 6px;font-size:20px}
+.gate p{margin:4px 0;line-height:1.7}
+.gate .ghint{margin-top:10px}
+.gate .gin{width:100%;font:inherit;font-size:18px;font-weight:800;text-align:center;
+  letter-spacing:2px;padding:10px 12px;margin-top:8px;border:3px solid var(--line);
+  border-radius:12px;background:var(--bg);color:var(--ink)}
+.gate .gin:focus{outline:none;border-color:var(--brand)}
+.gate .gerr{color:var(--accent);font-weight:800;margin-top:8px}
+.gate .gbtns{display:flex;gap:10px;margin-top:14px}
+.gate .gbtns .btn{flex:1;text-align:center;font-family:inherit;font-size:16px;
+  cursor:pointer;padding:11px 12px}
+.gate .gbtns .btn.g{border:3px solid var(--go)}

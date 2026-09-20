@@ -318,9 +318,14 @@ def tryit(*items):
 def tip(hd, text): return f'<div class="tip"><span class="hd">{hd}</span>{text}</div>'
 def note(hd, text): return f'<div class="note"><span class="hd">{hd}</span>{text}</div>'
 
-def optional(hd, text):
-    """給孩子的選讀。想知道就點開，不看也不影響做出東西——跟 adult() 的對象不同。"""
-    return (f'<details class="optional"><summary>{hd}</summary>'
+def optional(hd, text, cls=""):
+    """給孩子的選讀。想知道就點開，不看也不影響做出東西——跟 adult() 的對象不同。
+
+    cls="answer"：積木入門的答案。app.js 只對 .optional.answer 裝「打 answer」的關卡，
+    其他選讀（例如第 8 課的音名說明）不會被擋。
+    """
+    extra = f" {cls}" if cls else ""
+    return (f'<details class="optional{extra}"><summary>{hd}</summary>'
             f'<div>{text}</div></details>')
 
 def adult(text):
@@ -996,7 +1001,7 @@ def build_learn():
                      '要先按<b>「建立一個變數…」</b>做一個盒子，這些積木才會出現</div>')
         body += f'<p><b>換你做：</b>{todo}</p>'
         if bid in LEARN_ANSWER:
-            body += optional("🙈 偷看答案", LEARN_ANSWER[bid])
+            body += optional("🙈 偷看答案", LEARN_ANSWER[bid], "answer")
         body += look(look_txt)
         cards.append(step(i, title, body))
 
