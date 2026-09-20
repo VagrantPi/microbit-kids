@@ -160,7 +160,11 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
     document.dispatchEvent(new CustomEvent('mb:blocks-ready', { detail: { ok: ok } }));
   }
 
-  var timer = setTimeout(function () { finish(false); }, 15000);
+  // 實測 2026-09-20：積木入門 89 塊（48 張卡 ＋ 41 個答案）在本機約 9 秒畫完，
+  // 跟 48 塊時差不多——時間主要花在抓 CDN，不是塊數。所以 15 秒其實還夠用，
+  // 但塊數變多後網路一慢就容易誤判成離線，拉到 25 秒留約 2.7 倍餘裕。
+  // 不要再往上加：真的連不上時，孩子要盯著空白等這麼久才看到提示。
+  var timer = setTimeout(function () { finish(false); }, 25000);
 
   // MakeCode 文件站會另外載入 fieldeditors.js，註冊「姿勢」「引腳」這種特製下拉。
   // 只用 --embed 不會載入它，「當姿勢 晃動 發生」的「晃動 ▾」就整個不見（實測踩過）。
@@ -303,15 +307,18 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
     var ac = learnAudio();
     if (!ac) { stop(); return; }
     silence();
-    gain = ac.createGain();
-    gain.gain.setValueAtTime(0, ac.currentTime);
-    gain.gain.linearRampToValueAtTime(0.12, ac.currentTime + 0.01);   // 不要「啪」一聲
-    gain.connect(ac.destination);
-    osc = ac.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = notes[i][0];
-    osc.connect(gain);
-    osc.start();
+    // 頻率 0 = 休止符：什麼都不發，只安靜等那段時間（「rest」那塊就靠這個示範）
+    if (notes[i][0] > 0) {
+      gain = ac.createGain();
+      gain.gain.setValueAtTime(0, ac.currentTime);
+      gain.gain.linearRampToValueAtTime(0.12, ac.currentTime + 0.01);   // 不要「啪」一聲
+      gain.connect(ac.destination);
+      osc = ac.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = notes[i][0];
+      osc.connect(gain);
+      osc.start();
+    }
     var ms = notes[i][1];
     if (ms == null) return;              // null = 一直響，要按停（ringTone）
     timer = setTimeout(function () {

@@ -735,6 +735,96 @@ LEARN = [
      "<code>receivedNumber</code> 就是聽到的那個數字。", None,
      "拖到空白的地方，裡面放「顯示數字」，再把 <code>receivedNumber</code> 拖進白框框。",
      "要<b>兩台</b>才玩得起來：一台按 A，另一台亮出數字 🎉"),
+
+    # ---- 第三階：遊戲區和第 11、12 課會用到的 ----
+    ("led.plot", "指定<b>一顆</b>燈亮起來。<b>x</b> 是左右第幾個、<b>y</b> 是上下第幾排（都從 0 數）。",
+     ([(EMPTY, 250), (CENTER, 1600)], False),
+     "拖進「當啟動時」，<code>x</code> 和 <code>y</code> 都打 <code>2</code>。",
+     "正中央亮起一顆燈 💡"),
+
+    ("led.unplot", "指定一顆燈<b>熄掉</b>。跟「點亮」剛好相反。",
+     ([(CENTER, 900), (EMPTY, 900)], True),
+     "放在「點亮 x 2 y 2」的<b>下面</b>，中間夾一塊「暫停 500」。",
+     "燈亮一下就被關掉了"),
+
+    ("led.toggle", "那顆燈<b>亮的變暗、暗的變亮</b>。一塊就能做閃爍。",
+     ([(CENTER, 600), (EMPTY, 600)], True),
+     "放進「重複無限次」，後面加一塊「暫停 500」。",
+     "正中央那顆<b>一閃一閃</b> ✨"),
+
+    ("led.point", "圓圓的<b>問句</b>：那顆燈<b>現在亮不亮</b>？回答「是」或「不是」。", None,
+     "把它拖進「如果」的六角形洞裡。",
+     "六角形的洞被塞滿了，但還看不出效果"),
+
+    ("led.brightness", "整片燈<b>調亮或調暗</b>。<b>0</b> 最暗、<b>255</b> 最亮。", None,
+     "放在「顯示圖示」的<b>前面</b>，數字改成 <code>64</code>。",
+     "圖案變得<b>比較暗</b>（要看真的板子才明顯）"),
+
+    ("math.add", "兩個數字<b>加起來</b>。", None,
+     "把它拖進「顯示數字」的白框框，兩邊打 <code>2</code> 和 <code>3</code>。",
+     "螢幕上出現 <b>5</b>"),
+
+    ("math.sub", "左邊<b>減掉</b>右邊。", None,
+     "拖進「顯示數字」，打 <code>10</code> 減 <code>3</code>。",
+     "螢幕上出現 <b>7</b>"),
+
+    ("math.mul", "兩個數字<b>乘起來</b>（<b>×</b> 念做「乘」）。", None,
+     "拖進「顯示數字」，打 <code>3</code> 乘 <code>4</code>。",
+     "螢幕上出現 <b>12</b>"),
+
+    ("math.div", "左邊<b>除以</b>右邊（<b>/</b> 念做「除以」）。", None,
+     "拖進「顯示數字」，打 <code>10</code> 除以 <code>2</code>。",
+     "螢幕上出現 <b>5</b>"),
+
+    ("logic.and", "<b>兩邊都成立</b>才算成立。像「下雨<b>而且</b>沒帶傘」。", None,
+     "拖進「如果」的洞裡，兩邊各塞一個問句。",
+     "要<b>兩件事同時成立</b>，裡面的事才會做"),
+
+    ("logic.or", "<b>只要一邊成立</b>就算成立。像「按 A <b>或</b>按 B 都可以」。", None,
+     "跟「且」一樣拖進「如果」，兩邊各塞一個問句。",
+     "<b>其中一個</b>成立就會做"),
+
+    ("logic.true", "<b>「對」</b>。旁邊還有一塊 <code>false</code>，是「不對」。", None,
+     "先拖出來放旁邊，點一下選單看看可以換成 <code>false</code>。",
+     "選單裡有 true 和 false 兩種"),
+
+    ("loop.while", "<b>只要條件還成立，就一直做</b>。條件一不成立就停。", None,
+     "拖進「當啟動時」，把一塊「＜」塞進六角形的洞。",
+     "架子搭好了，裡面還空空的"),
+
+    ("loop.forIndex", "從 <b>0 數到 4</b>，一邊數一邊做。<code>index</code> 就是現在數到幾。", None,
+     "拖進「當啟動時」，裡面放「顯示數字」，把 <code>index</code> 拖進白框框。",
+     "螢幕依序出現 0、1、2、3、4 🔢"),
+
+    ("event.onPin", "<b>手碰到金色的孔</b>（P0）它才做。要另一隻手按著 <b>GND</b> 才有反應。",
+     ([(EMPTY, 1), (HEART, 1500)], False, "🖐 摸摸看"),
+     "拖到空白的地方，裡面放一個「顯示圖示」。",
+     "碰一下 P0 → 圖案跳出來"),
+
+    ("event.buttonIsPressed", "圓圓的<b>問句</b>：<b>現在</b>有沒有在按 A？回答「是」或「不是」。", None,
+     "把它拖進「如果」的六角形洞裡。",
+     "跟「當按鈕 A 被按下」不一樣——這塊是<b>問現在</b>，不是等你按"),
+
+    ("event.pinIsPressed", "圓圓的問句：<b>現在</b>金色的孔有沒有被碰到？", None,
+     "把它拖進「如果」的六角形洞裡。",
+     "六角形的洞剛好被塞滿 ✅"),
+
+    ("music.rest", "<b>安靜一下下</b>，不出聲。用來在兩個音中間空一拍。",
+     ("sound", [(NOTE_HZ["中音 C"], 500), (0, 500), (NOTE_HZ["中音 E"], 500)], "🔊 叮—(停)—叮"),
+     "夾在兩塊 <b>play tone</b> 中間。",
+     "兩聲中間<b>空了一下</b> 🎵"),
+
+    ("music.stopAll", "<b>叫它閉嘴</b>，馬上安靜。聲音停不下來時就用這塊。", None,
+     "放進一頂「當按鈕 A 被按下」的帽子裡。",
+     "之後聲音一直響的時候，點 A 就會停 🔇"),
+
+    ("radio.sendString", "把一句<b>話</b>喊出去（英文字母）。跟「發送數字」是兄弟。", None,
+     "放進「當按鈕 A 被按下」，打 <code>HI</code>。",
+     "自己這台看不出變化，要另一台才看得到 📡"),
+
+    ("radio.onString", "一頂<b>耳朵帽子</b>：聽到話就做，<code>receivedString</code> 就是聽到的那句。", None,
+     "拖到空白的地方，裡面放「顯示文字」，把 <code>receivedString</code> 拖進框框。",
+     "要<b>兩台</b>：一台按 A，另一台滑出 HI 🎉"),
 ]
 
 LEARN_NAME = {
@@ -765,6 +855,27 @@ LEARN_NAME = {
     "radio.setGroup":    ("廣播群組設為", "廣播群組設為 1"),
     "radio.sendNumber":  ("廣播發送數字", "廣播發送數字 0"),
     "radio.onNumber":    ("當收到廣播數字", "當收到廣播數字 receivedNumber"),
+    "led.plot":              ("點亮 x y", "點亮 x 0 y 0"),
+    "led.unplot":            ("不點亮 x y", "不點亮 x 0 y 0"),
+    "led.toggle":            ("點的狀態切換", "點的狀態切換 x 0 y 0"),
+    "led.point":             ("點的狀態（問句）", "點的狀態 x 0 y 0"),
+    "led.brightness":        ("燈光 亮度設為", "燈光 亮度設為 255"),
+    "math.add":              ("＋（加）", "+"),
+    "math.sub":              ("－（減）", "-"),
+    "math.mul":              ("×（乘）", "×"),
+    "math.div":              ("／（除）", "/"),
+    "logic.and":             ("且", "且"),
+    "logic.or":              ("或", "或"),
+    "logic.true":            ("true（對）", "true"),
+    "loop.while":            ("重複 判斷", "重複 判斷 false 執行"),
+    "loop.forIndex":         ("計次 從 0 到 4", "計次 從 0 到 4 執行"),
+    "event.onPin":           ("當引腳 P0 被按下", "當引腳 P0 被按下"),
+    "event.buttonIsPressed": ("按鈕 A 被按下？", "按鈕 A 被按下？"),
+    "event.pinIsPressed":    ("引腳 P0 被按下？", "引腳 P0 被按下？"),
+    "music.rest":            ("rest（休息一下）", "rest for 1 拍"),
+    "music.stopAll":         ("停止播放所有音效", "停止播放所有音效"),
+    "radio.sendString":      ("廣播發送文字", "廣播發送文字"),
+    "radio.onString":        ("當收到廣播文字", "當收到廣播文字 receivedString"),
 }
 
 # 沒有播放鍵的積木，預設說「要配別的積木才看得到」；理由不一樣的在這裡各別講清楚，
@@ -783,6 +894,20 @@ LEARN_NOPLAY = {
                          "一台自己玩不出來，所以這裡沒有播放鍵。"),
     "radio.onNumber": ("📡 廣播要<b>兩台</b>才看得出效果",
                        "一台自己玩不出來，所以這裡沒有播放鍵。"),
+    "led.brightness": ("🔅 中間的亮度，這頁的假螢幕畫不出來",
+                       "它只有<b>亮</b>和<b>暗</b>兩種，演不出「比較暗」——"
+                       "這個要看真的板子才明顯，我們不假裝。"),
+    "led.point": ('❓ 圓圓的問句，答案是「是／不是」', '它不會在燈上畫東西，要配「如果」才看得出效果。'),
+    "event.buttonIsPressed": ('❓ 圓圓的問句，答案是「是／不是」', '它不會在燈上畫東西，要配「如果」才看得出效果。'),
+    "event.pinIsPressed": ('❓ 圓圓的問句，答案是「是／不是」', '它不會在燈上畫東西，要配「如果」才看得出效果。'),
+    "math.add": ('🔢 算出來的是<b>數字</b>，不是圖', '要配「顯示數字」才看得到。'),
+    "math.sub": ('🔢 算出來的是<b>數字</b>，不是圖', '要配「顯示數字」才看得到。'),
+    "math.mul": ('🔢 算出來的是<b>數字</b>，不是圖', '要配「顯示數字」才看得到。'),
+    "math.div": ('🔢 算出來的是<b>數字</b>，不是圖', '要配「顯示數字」才看得到。'),
+    "music.stopAll": ("🔇 要先有聲音在響，才看得出它的用處",
+                      "上面「演奏 音階」那張按下去不會自己停，這塊就是用來停它的。"),
+    "radio.sendString": ('📡 廣播要<b>兩台</b>才看得出效果', '一台自己玩不出來，所以這裡沒有播放鍵。'),
+    "radio.onString": ('📡 廣播要<b>兩台</b>才看得出效果', '一台自己玩不出來，所以這裡沒有播放鍵。'),
 }
 
 # 「換你做」的答案：做完應該長什麼樣，預設收起來（先自己拼，再對答案）。
@@ -811,9 +936,30 @@ LEARN_ANSWER = {
     "radio.setGroup":    mcp("radio.setGroup(1)"),
     "radio.sendNumber":  mcp(ts_button("A", "radio.sendNumber(1)")),
     "radio.onNumber":    mcp(ts_radio_number("basic.showNumber(receivedNumber)")),
+    "led.plot":              mcp("led.plot(2, 2)"),
+    "led.unplot":            mcp("led.plot(2, 2)\nbasic.pause(500)\nled.unplot(2, 2)"),
+    "led.toggle":            mcp(ts_forever("led.toggle(2, 2)", "basic.pause(500)")),
+    "led.point":             mc(ts_if("led.point(2, 2)", ("basic.showIcon(IconNames.Yes)",))),
+    "led.brightness":        mcp("led.setBrightness(64)\nbasic.showIcon(IconNames.Heart)"),
+    "math.add":              mcp("basic.showNumber(2 + 3)"),
+    "math.sub":              mcp("basic.showNumber(10 - 3)"),
+    "math.mul":              mcp("basic.showNumber(3 * 4)"),
+    "math.div":              mcp("basic.showNumber(10 / 2)"),
+    "logic.and":             mc(ts_if("input.buttonIsPressed(Button.A) && input.buttonIsPressed(Button.B)", ())),
+    "logic.or":              mc(ts_if("input.buttonIsPressed(Button.A) || input.buttonIsPressed(Button.B)", ())),
+    "loop.while":            mcp("while (0 < 5) {\n\n}"),
+    "loop.forIndex":         mcp("for (let index = 0; index <= 4; index++) {\n    basic.showNumber(index)\n}"),
+    "event.onPin":           mcp(ts_pin("P0", "basic.showIcon(IconNames.Heart)")),
+    "event.buttonIsPressed": mc(ts_if("input.buttonIsPressed(Button.A)", ("basic.showIcon(IconNames.Heart)",))),
+    "event.pinIsPressed":    mc(ts_if("input.pinIsPressed(TouchPin.P0)", ("basic.showIcon(IconNames.Heart)",))),
+    "music.rest":            mcp(tone_ts() + "\nmusic.rest(music.beat(BeatFraction.Whole))\n" + tone_ts("中音 E")),
+    "music.stopAll":         mcp(ts_button("A", "music.stopAllSounds()")),
+    "radio.sendString":      mcp(ts_button("A", 'radio.sendString("HI")')),
+    "radio.onString":        mcp(ts_radio_string("basic.showString(receivedString)")),
 }
 
 STAGE2_FROM = "loop.repeat"      # 從這一塊開始是第二階
+STAGE3_FROM = "led.plot"         # 從這一塊開始是第三階
 
 def build_learn():
     cards = []
@@ -822,6 +968,10 @@ def build_learn():
             cards.append(stage("🎵", "第二階",
                                "第一階都認識了 🎉 這一批會在<b>第 6～10 課</b>遇到："
                                "數得完的迴圈、問句、感測值、聲音和廣播。"))
+        if bid == STAGE3_FROM:
+            cards.append(stage("🎮", "第三階",
+                               "最後一批 🏁 這些多半是<b>做遊戲</b>才用得到的："
+                               "一顆一顆點燈、算數、且／或，還有兩台對講。"))
         b = _block_by_id(bid)
         title, findname = LEARN_NAME[bid]
         body = render_dex_block(b) + f'<p>{oneline}</p>'
