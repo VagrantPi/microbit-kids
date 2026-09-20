@@ -2103,6 +2103,21 @@ def build_l12():
 # 並算出所有遊戲合起來的涵蓋率——「用盡可能多的積木」才是可驗證的，不是喊口號。
 GAMES = [
     # tier="easy"：完全不用變數、不用 x/y 座標、不用音名。給還沒準備好的孩子先玩。
+    dict(id="e3", em="🧭", title="歪歪指路", sub="板子歪哪邊，箭頭就指哪邊", tier="easy",
+         uses=[
+             # 基本關
+             "event.onGesture", "basic.showArrow",
+             # 加料關
+             "basic.clearScreen", "basic.showIcon", "math.random", "logic.ifElse",
+         ]),
+    dict(id="e4", em="💡", title="小夜燈", sub="天黑就自己亮，變亮就熄掉", tier="easy",
+         uses=[
+             # 基本關
+             "basic.forever", "logic.ifElse", "logic.lt", "event.lightLevel",
+             "basic.showIcon", "basic.clearScreen",
+             # 加料關
+             "basic.showNumber", "basic.showLeds", "led.brightness",
+         ]),
     dict(id="e1", em="✌️", title="猜拳機", sub="搖一搖，隨機出石頭、剪刀或布", tier="easy",
          uses=[
              # 基本關
@@ -2120,6 +2135,14 @@ GAMES = [
              # 加料關
              "music.playTone", "event.onGesture", "var.set", "var.change", "var.get",
              "basic.showNumber",
+         ]),
+    dict(id="e5", em="🔢", title="按按計數器", sub="按一下加一，幫你數東西", tier="easy",
+         uses=[
+             # 基本關
+             "basic.onStart", "var.set", "event.onButton", "var.change",
+             "basic.showNumber", "var.get",
+             # 加料關
+             "logic.if", "logic.eq", "basic.showIcon", "event.onGesture",
          ]),
     dict(id="g1", em="⭐", title="接星星", sub="星星掉下來，左右跑去接住它", tier="main",
          uses=[
@@ -2538,6 +2561,247 @@ def build_e2():
         ]) + game_nav("e2")
     )
     write_game("e2", body, "入門遊戲：反應王")
+
+# ---- 🧭 歪歪指路（入門：不用變數、不用座標、沒有音樂）----
+def build_e3():
+    body = (
+        game_top("e3", "入門遊戲 · 最好上手", "🧭 歪歪指路") +
+        goal("🧭", "板子<b>歪哪邊</b>，箭頭就<b>指哪邊</b>。") +
+
+        '<p>這個遊戲<b>只用兩種積木</b>，四步就能玩。</p>'
+        '<p>不用盒子（變數）、不用數格子、也沒有聲音 🤫</p>'
+
+        + stage("🎮", "基本關", "做完這 4 步就能玩了。")
+
+        + step(1, "拉一頂「姿勢」帽子",
+               find("event", "當姿勢 晃動 發生")
+               + '<p>拖到空白的地方，點 <b>晃動</b> 的選單，改成 <b>「左側偏低」</b>。</p>'
+               + mcp(ts_gesture("TiltLeft"))
+               + look("帽子上寫著「左側偏低」。")
+               + adult("「左側偏低」就是<b>往左邊歪</b>。選單裡還有右側偏低、正面朝上、背面朝上。")) +
+
+        step(2, "往左歪就指左邊",
+             find("basic", "顯示箭頭", "（基本抽屜的<b>最後一塊</b>）")
+             + '<p>拖進帽子裡，選單選 <b>西</b>——<b>西就是左邊</b>。</p>'
+             + mcp(ts_gesture("TiltLeft", "basic.showArrow(ArrowNames.West)"))
+             + look("把板子<b>往左歪</b> → 箭頭指左 ⬅️")) +
+
+        step(3, "再做一頂：往右歪",
+             '<p>做法<b>一模一樣</b>：再拉一頂帽子改成 <b>「右側偏低」</b>，'
+             '裡面的箭頭選 <b>東</b>（東就是右邊）。</p>'
+             + mcp(ts_gesture("TiltRight", "basic.showArrow(ArrowNames.East)"))
+             + look("往右歪 → 箭頭指右 ➡️")) +
+
+        step(4, "玩玩看",
+             '<p>兩頂帽子都做好了，<b>左右歪一歪</b>試試。</p>'
+             + look("<b>可以玩了！</b> 歪左指左、歪右指右 🧭")
+             + adult("玩法建議：你喊「左！」「右！」，他要<b>在一秒內</b>歪對邊。<br>"
+                     "喊快一點就變成反應遊戲，兩個人輪流當喊的人。")) +
+
+        stage("🍬", "加料關", "一關一個小點子，做幾關都可以。")
+
+        + step(5, "加料 ①：放平就收起來",
+               '<p>再拉一頂帽子改成 <b>「正面朝上」</b>，裡面放 <b>清空畫面</b>。</p>'
+               + mcp(ts_gesture("ScreenUp", "basic.clearScreen()"))
+               + look("板子<b>放平</b> → 箭頭不見了 ✨")
+               + '<p class="usedhint">這一關多用到：<b>清空畫面</b></p>') +
+
+        step(6, "加料 ②：翻過來就生氣",
+             '<p>一頂 <b>「背面朝上」</b> 的帽子，裡面放 <b>顯示圖示</b>，挑一個生氣的臉。</p>'
+             + mc("basic.showIcon(IconNames.Angry)")
+             + look("把板子<b>翻過來</b> → 它生氣了 😠")
+             + '<p class="usedhint">這一關多用到：<b>顯示圖示</b></p>') +
+
+        step(7, "加料 ③：搖一搖變尋寶羅盤",
+             '<p>一頂 <b>「晃動」</b> 的帽子，裡面放 <b>如果…那麼…否則</b>，'
+             '條件用<b>抽籤</b>（改成 0 到 1）<b class="bname">=</b> <code>0</code>。</p>'
+             '<p>那麼放<b>箭頭 西</b>、否則放<b>箭頭 東</b>。</p>'
+             + mcp(ts_gesture("Shake", ts_if("randint(0, 1) == 0",
+                                             ("basic.showArrow(ArrowNames.West)",),
+                                             ("basic.showArrow(ArrowNames.East)",))))
+             + look("搖一搖 → 它<b>隨便指一邊</b>，假裝寶藏在那裡 🗺️")
+             + '<p class="usedhint">這一關多用到：<b>隨機取數</b>、<b>如果…否則</b></p>') +
+
+        tryit("跟家人玩「喊左喊右」，看誰歪錯邊。",
+              "把箭頭換成你自己畫的圖案。") +
+
+        uses_section("e3") +
+
+        final("e3", [
+            "我會把「當姿勢」的選單改成左側偏低、右側偏低",
+            "我知道西是左邊、東是右邊",
+            "我做出了一個會指路的板子",
+        ]) + game_nav("e3")
+    )
+    write_game("e3", body, "入門遊戲：歪歪指路")
+
+
+# ---- 💡 小夜燈（入門：不用變數、不用座標、沒有音樂）----
+def build_e4():
+    body = (
+        game_top("e4", "入門遊戲 · 會感覺的板子", "💡 小夜燈") +
+        goal("💡", "天一黑它<b>自己亮</b>，變亮又<b>自己熄掉</b>。") +
+
+        '<p>這次板子會<b>自己感覺</b>四周亮不亮 👀</p>'
+        '<p>不用盒子（變數）、不用數格子、也沒有聲音。</p>'
+
+        + stage("🎮", "基本關", "做完這 5 步就能玩了。")
+
+        + step(1, "先拿一個「一直做」的架子",
+               find("basic", "重複無限次")
+               + '<p>它跟「當啟動時」一樣，一開始就在畫面上。</p>'
+               + mcp(ts_forever())
+               + look("畫面上有一個 C 形的大架子。")
+               + adult("要用「重複無限次」是因為它得<b>一直盯著</b>亮度。"
+                       "放進「當啟動時」只會看一次就結束。")) +
+
+        step(2, "放一個岔路口進去",
+             find("logic", "如果 … 那麼 … 否則", "（要有<b>「否則」</b>的那塊）")
+             + '<p>拖進「重複無限次」裡面。</p>'
+             + mcp(ts_forever(ts_if("true", (), ())))
+             + look("架子裡多了一個岔路口，兩格都還空空的。")) +
+
+        step(3, "問它「現在很暗嗎？」",
+             find("logic", "<", "（念做「小於」）")
+             + '<p>把 <b class="bname">&lt;</b> 拖進六角形的洞裡。</p>'
+             + find("event", "光線感測值", "（<b>0</b> 是全黑，<b>255</b> 是很亮）")
+             + '<p>左邊塞<b>光線感測值</b>，右邊打 <code>50</code>。</p>'
+             + mc("input.lightLevel() < 50")
+             + look("條件看起來像「光線感測值 ＜ 50」。")
+             + adult("50 只是個起點。教室很亮的話可以調大一點（例如 100），"
+                     "讓他<b>自己試</b>哪個數字最好用——這比背數字有用。")) +
+
+        step(4, "暗的時候亮起來",
+             find("basic", "顯示圖示")
+             + '<p>拖進 <b>那麼</b> 裡面，挑一個你喜歡的圖。</p>'
+             + mc("basic.showIcon(IconNames.Heart)")
+             + look("用手<b>蓋住</b>板子 → 圖案亮起來 ❤️")) +
+
+        step(5, "亮的時候熄掉",
+             find("basic", "清空畫面")
+             + '<p>拖進 <b>否則</b> 裡面。</p>'
+             + mcp(ts_forever(ts_if("input.lightLevel() < 50",
+                                    ("basic.showIcon(IconNames.Heart)",),
+                                    ("basic.clearScreen()",))))
+             + look("<b>可以玩了！</b> 手蓋住就亮、手拿開就暗 💡")) +
+
+        stage("🍬", "加料關", "一關一個小點子，做幾關都可以。")
+
+        + step(6, "加料 ①：現在到底多亮？",
+               find("basic", "顯示數字")
+               + '<p>先把它放進 <b>否則</b> 裡（取代清空畫面），白框框塞<b>光線感測值</b>。</p>'
+               + mc("basic.showNumber(input.lightLevel())")
+               + look("畫面一直跑數字——把手慢慢移近，<b>數字會變小</b> 🔢")
+               + adult("這一步是讓他<b>自己找門檻</b>：看蓋住時大概是多少、"
+                       "沒蓋住是多少，再回去把 50 改成中間那個數。")
+               + '<p class="usedhint">這一關多用到：<b>顯示數字</b>、<b>光線感測值</b></p>') +
+
+        step(7, "加料 ②：換成自己畫的圖",
+             find("basic", "顯示指示燈")
+             + '<p>把「顯示圖示」換成這塊，自己點一張小夜燈的圖。</p>'
+             + mc(leds_ts(HEART))
+             + look("天黑時亮出<b>你畫的</b>圖案 🎨")
+             + '<p class="usedhint">這一關多用到：<b>顯示指示燈</b></p>') +
+
+        step(8, "加料 ③：晚上不要太刺眼",
+             find("led", "燈光 亮度設為 255", more=True)
+             + '<p>放在<b>最前面</b>（「重複無限次」的上面），數字改成 <code>64</code>。</p>'
+             + mc("led.setBrightness(64)")
+             + look("亮起來<b>柔和多了</b>，適合放床頭 🌙")
+             + '<p class="usedhint">這一關多用到：<b>燈光 亮度設為</b></p>') +
+
+        tryit("把它放進鞋盒裡，開關燈看看反應。",
+              "找出<b>你家</b>最適合的那個數字，把 50 換掉。") +
+
+        uses_section("e4") +
+
+        final("e4", [
+            "我做出了一個會自己感覺亮暗的小夜燈",
+            "我知道「光線感測值」會給我一個數字",
+            "我會用「＜」問「是不是比較小」",
+        ]) + game_nav("e4")
+    )
+    write_game("e4", body, "入門遊戲：小夜燈")
+
+
+# ---- 🔢 按按計數器（入門：只用一個變數、沒有音樂）----
+def build_e5():
+    body = (
+        game_top("e5", "入門遊戲 · 第一次用盒子", "🔢 按按計數器") +
+        goal("🔢", "按一下<b>加一</b>，幫你數東西。") +
+
+        '<p>這個遊戲會用到<b>一個盒子（變數）</b>——就是那個<b>記數字的小盒子</b>。</p>'
+        '<p>只用一個，慢慢來就會了 👍</p>'
+
+        + stage("🎮", "基本關", "做完這 5 步就能玩了。")
+
+        + step(1, "先做一個盒子",
+               '<div class="find">' + dot("var") +
+               '去 <b>變數</b> 抽屜（深紅色的），按 <b>「建立一個變數…」</b></div>'
+               + '<p>名字打 <code>n</code>（一個英文字母就好，好打又好認）。</p>'
+               + look("變數抽屜裡多出了 <code>n</code> 的積木。")
+               + adult("名字用英文 <code>n</code> 是刻意的——打中文要切注音，會卡住他。")) +
+
+        step(2, "開機先歸零",
+             '<p>在 <b>「當啟動時」</b> 裡放 <b>「變數 n 設為 0」</b>。</p>'
+             + mcp("let n = 0")
+             + look("畫面沒變化——這一步是在做準備，正常 👍")) +
+
+        step(3, "按 A 就加一",
+             find("event", "當按鈕 A 被按下")
+             + '<p>拖到空白處，裡面放 <b>「變數 n 改變 1」</b>。</p>'
+             + mcp(ts_button("A", "n += 1"))
+             + look("按 A 還沒反應，因為還沒叫它秀出來。")) +
+
+        step(4, "把數字秀出來",
+             find("basic", "顯示數字")
+             + '<p>放在「變數 n 改變 1」的<b>下面</b>，白框框塞<b>圓圓的 n</b>。</p>'
+             + mcp(ts_button("A", "n += 1", "basic.showNumber(n)"))
+             + look("<b>可以玩了！</b> 按 A → 1、2、3⋯⋯它記住了 🔢")) +
+
+        step(5, "玩玩看",
+             '<p>拿它去數點東西：數樓梯、數跳繩、數家裡有幾雙鞋。</p>'
+             + look("數字一直往上加，不會自己忘記")
+             + adult("這就是變數最好懂的用法：<b>它記得上一次的數字</b>。<br>"
+                     "他如果問「為什麼不是一直 1」，就是抓到重點了——"
+                     "「改變 1」是<b>在原本的數字上加</b>，不是設成 1。")) +
+
+        stage("🍬", "加料關", "一關一個小點子，做幾關都可以。")
+
+        + step(6, "加料 ①：按 B 重來",
+               '<p>再拉一頂 <b>B</b> 的帽子，裡面放 <b>「變數 n 設為 0」</b>和<b>顯示數字 n</b>。</p>'
+               + mcp(ts_button("B", "n = 0", "basic.showNumber(n)"))
+               + look("按 B → 變回 <b>0</b>，可以重新數 🔄")
+               + '<p class="usedhint">這一關多用到：<b>變數 n 設為</b></p>') +
+
+        step(7, "加料 ②：數到 10 放煙火",
+             find("logic", "如果 … 那麼", "（這次要<b>沒有</b>「否則」的那塊）")
+             + '<p>放在「顯示數字」的下面，條件是 <b>n</b> <b class="bname">=</b> <code>10</code>，'
+             '裡面放一個<b>笑臉</b>。</p>'
+             + mc(ts_if("n == 10", ("basic.showIcon(IconNames.Happy)",)))
+             + look("數到 <b>10</b> 的時候會跳出笑臉 🎉")
+             + '<p class="usedhint">這一關多用到：<b>如果…那麼</b>、<b>=</b></p>') +
+
+        step(8, "加料 ③：搖一搖也能重來",
+             find("event", "當姿勢 晃動 發生")
+             + '<p>一頂「晃動」帽子，裡面跟按 B 做一樣的事。</p>'
+             + mcp(ts_gesture("Shake", "n = 0", "basic.showNumber(n)"))
+             + look("搖一搖 → 歸零，兩種重來方式都可以 🤾")
+             + '<p class="usedhint">這一關多用到：<b>當姿勢 晃動 發生</b></p>') +
+
+        tryit("用它數你家有幾雙鞋。",
+              "把「數到 10」改成你想要的數字。") +
+
+        uses_section("e5") +
+
+        final("e5", [
+            "我做出了一個會記住數字的計數器",
+            "我知道「改變 1」是在原本的數字上加",
+            "我會用「設為 0」讓它重來",
+        ]) + game_nav("e5")
+    )
+    write_game("e5", body, "入門遊戲：按按計數器")
+
 
 # ---- ⭐ 接星星 ----
 def build_g1():
@@ -3095,6 +3359,7 @@ def main():
     build_blocks()
     build_games_hub()
     build_e1(); build_e2()
+    build_e3(); build_e4(); build_e5()
     build_g1(); build_g2(); build_g3()
     build_l0(); build_l1(); build_l2(); build_l3(); build_l4(); build_l5(); build_l6()
     build_l7(); build_l8(); build_l9(); build_l10(); build_l11(); build_l12()
