@@ -785,6 +785,34 @@ LEARN_NOPLAY = {
                        "一台自己玩不出來，所以這裡沒有播放鍵。"),
 }
 
+# 「換你做」的答案：做完應該長什麼樣，預設收起來（先自己拼，再對答案）。
+# 只放真的有東西可拼的卡——像「當啟動時」「挑有否則的那塊」「＜ 點選單看看」，
+# 答案會跟卡片最上面那塊一模一樣，放了只是多一次點擊。
+LEARN_ANSWER = {
+    "basic.showIcon":    mcp("basic.showIcon(IconNames.Heart)"),
+    "basic.showLeds":    mcp(leds_ts(SMILE)),
+    "basic.clearScreen": mcp("basic.showIcon(IconNames.Heart)\nbasic.clearScreen()"),
+    "basic.pause":       mcp("basic.showIcon(IconNames.Heart)\nbasic.pause(500)\nbasic.clearScreen()"),
+    "basic.forever":     mcp(ts_forever("basic.showIcon(IconNames.Happy)", "basic.pause(500)",
+                                        "basic.showIcon(IconNames.Sad)", "basic.pause(500)")),
+    "basic.showNumber":  mcp("basic.showNumber(8)"),
+    "basic.showString":  mcp('basic.showString("TOM")'),
+    "event.onButton":    mcp(ts_button("A", "basic.showIcon(IconNames.Heart)")),
+    "event.onGesture":   mcp(ts_gesture("Shake", "basic.showIcon(IconNames.Happy)")),
+    "math.random":       mc("randint(0, 6)"),
+    "var.set":           mcp("let x = 0"),
+    "var.change":        mcp(ts_button("A", "x += 1")),
+    "var.get":           mcp(ts_button("A", "x += 1", "basic.showNumber(x)")),
+    "loop.repeat":       mcp(ts_repeat(4)),
+    "logic.eq":          mc(ts_if("0 == 0", ())),
+    "basic.showArrow":   mcp("basic.showArrow(ArrowNames.West)"),
+    "event.lightLevel":  mcp("basic.showNumber(input.lightLevel())"),
+    "event.temperature": mcp("basic.showNumber(input.temperature())"),
+    "radio.setGroup":    mcp("radio.setGroup(1)"),
+    "radio.sendNumber":  mcp(ts_button("A", "radio.sendNumber(1)")),
+    "radio.onNumber":    mcp(ts_radio_number("basic.showNumber(receivedNumber)")),
+}
+
 STAGE2_FROM = "loop.repeat"      # 從這一塊開始是第二階
 
 def build_learn():
@@ -816,7 +844,10 @@ def build_learn():
             body += ('<div class="find">' + dot("var") +
                      '去 <b>變數</b> 抽屜（深紅色的）——'
                      '要先按<b>「建立一個變數…」</b>做一個盒子，這些積木才會出現</div>')
-        body += f'<p><b>換你做：</b>{todo}</p>' + look(look_txt)
+        body += f'<p><b>換你做：</b>{todo}</p>'
+        if bid in LEARN_ANSWER:
+            body += optional("🙈 偷看答案", LEARN_ANSWER[bid])
+        body += look(look_txt)
         cards.append(step(i, title, body))
 
     body = (
