@@ -16,6 +16,9 @@ let dir = 1</code></pre></div><div class="look"><b>👀 看一下</b>畫面沒�
     basic.pause(200)
     x += dir
 })</code></pre></div><div class="look"><b>👀 看一下</b>燈往右邊跑⋯⋯然後<b>跑出畫面不見了</b> 😅 下一步修好它 👇</div></div></section><section class="step" data-k="s6"><div class="hd"><span class="n">6</span><span class="t">跑到最右邊就轉頭</span><span class="sbox"></span></div><div class="sbody"><p>加一塊 <b>「如果…那麼」</b>——這次用<b>沒有</b>「否則」的那塊。</p><p>條件 <b>x &gt; 3</b>，裡面放 <b>「變數 dir 設為 -1」</b>。</p><div class="prog mc"><pre><code class="lang-blocks">basic.forever(function () {
+    basic.clearScreen()
+    led.plot(x, 2)
+    basic.pause(200)
     x += dir
     if (x &gt; 3) {
         dir = -1
