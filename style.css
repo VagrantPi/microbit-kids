@@ -160,6 +160,8 @@ html[data-theme=dark] .check li.ok{background:#173322}
 .btn.p{background:var(--brand);color:#fff}
 .btn.g{background:var(--go);color:#fff}
 .btn.ghost{background:var(--card);color:var(--ink);border:3px solid var(--line)}
+/* <button> 預設用瀏覽器字型（Arial），不會繼承頁面字型 → 上面的中文就沒有注音（圖鑑測驗的「下一題」踩過）*/
+button.btn{font-family:inherit}
 .sp{flex:1}
 
 footer{margin-top:34px;color:var(--muted);font-size:14px;text-align:center;font-weight:600}
