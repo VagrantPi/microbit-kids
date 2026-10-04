@@ -104,8 +104,187 @@ def sidebar(cur):
     rows.append('</nav>')
     return '<aside class="side">' + ''.join(rows) + '</aside>'
 
+# ================= 注音（注音粉圓：字旁直接帶注音）=================
+# 2026-10-04 使用者決定全站加注音（推翻先前「不加注音」），一／不標變調。
+# 字型只會顯示每個字的「第一個讀音」；要別的讀音，得在字後面插異體字選擇器
+# U+E01E0+n（n＝第幾個讀音）。字型不會自己看上下文，所以由這裡判斷。
+# 讀音資料在 zhuyin/（ButTaiwan/bpmfvs v1.500：教育部一字多音審訂表、重編國語辭典），
+# 必須跟 fonts/BpmfHuninn-Regular.ttf 同一版，不然選擇器編號會整個對不上。
+VS_BASE = 0xE01E0
+
+def _load_phonic():
+    """字 → [讀音0, 讀音1, …]，順序＝字型的選擇器順序。"""
+    t = {}
+    with open(os.path.join(REPO, "zhuyin", "phonic_table_Z.txt"), encoding="utf-8") as f:
+        for line in f:
+            p = line.rstrip("\n").split("\t")
+            if len(p) >= 4 and p[0] and not p[0].startswith("#"):
+                t[p[0]] = [r for r in p[3:] if r]
+    return t
+
+def _load_poyin():
+    """字 → [(讀音, [詞條…]), …]，照檔案順序＝讀音選擇工具 ime.js 的比對順序。"""
+    db = {}
+    with open(os.path.join(REPO, "zhuyin", "poyin_db.txt"), encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line.startswith("["):
+                continue
+            head_, _, pats = line.partition("\t")
+            m = re.match(r"\[(.)[\]}] (\S+)$", head_)
+            if m:
+                db.setdefault(m.group(1), []).append(
+                    (m.group(2), [x for x in pats.split("/") if x]))
+    return db
+
+PHONIC = _load_phonic()
+POYIN = _load_poyin()
+
+# 詞庫猜不準、這套教材又常用到的，先在這裡決定（優先於詞庫）。* 是那個字的位置，格式同 poyin_db；
+# 單獨一個 "*" ＝這個字一律這樣唸（同一個字的規則照順序比，所以例外要寫在前面）。
+# 每一條都是 2026-10-04 全站破音字審查報告逐條看過才加的——不要憑印象加。
+ZHUYIN_FIX = [
+    ("子", "˙ㄗ",   ["板*", "盒*", "帽*", "格*", "架*", "點*", "曲*"]),   # 電子的子不是輕聲，所以不能一律
+    ("彈", "ㄉㄢˋ", ["子*", "*弓", "*藥", "炸*", "飛*", "導*"]),           # 名詞：子彈
+    ("彈", "ㄊㄢˊ", ["*"]),                                             # 動詞：彈一個音、彈來彈去
+    ("挑", "ㄊㄧㄠˇ", ["*戰"]),
+    ("挑", "ㄊㄧㄠ", ["*"]),                                            # 挑一個＝選
+    ("得", "ㄉㄟˇ", ["碼*", "它*一"]),                                  # 號碼得一樣、它得一直盯＝必須
+    ("得", "˙ㄉㄜ", ["*"]),                                             # 看得到、記得、做得完…
+    ("數", "ㄕㄨˇ", ["邊*一邊", "*格", "*東西", "數一*", "*得", "倒*"]),  # 動詞：數東西、數格子
+    ("當", "ㄉㄤˋ", ["*成", "*主", "*開", "*結", "*琴", "*畫", "*寵"]),  # 把…當…＝當作
+    ("為", "ㄨㄟˋ", ["*小小"]),                                         # 為小小創客打造
+    ("了", "ㄌㄧㄠˇ", ["接不*"]),
+    ("塞", "ㄙㄞ",   ["*"]),                     # 詞庫的「邊塞」會誤中「左邊塞進去」
+    ("重", "ㄔㄨㄥˊ", ["*拖"]),                                         # 重拖一次
+    ("空", "ㄎㄨㄥˋ", ["*隙", "間*一", "間*了"]),                        # 空隙、中間空一拍
+    ("教", "ㄐㄧㄠ", ["*變", "*過", "*概"]),                            # 動詞：教過、教變數
+    ("處", "ㄔㄨˋ", ["白*"]),                                           # 空白處＝地方
+    ("卡", "ㄑㄧㄚˇ", ["*住", "*進", "*在"]),                           # 卡住；卡片才是 ㄎㄚˇ
+    ("中", "ㄓㄨㄥˋ", ["抽*", "較好*"]),                                # 抽中、比較好中
+    ("相", "ㄒㄧㄤ", ["*反"]),
+    ("都", "ㄉㄡ",   ["步*會"]),                 # 詞庫的「都會（城市）」會誤中「每一步都會」
+    ("的", "˙ㄉㄜ", ["座標*"]),                  # 詞庫的「標的」會誤中「座標的寫法」
+    ("囉", "˙ㄌㄨㄛ", ["*"]),                                           # 語尾助詞
+]
+
+# 讀音回歸斷言：之後改教材，這些唸錯 build 就會失敗。（詞, 第幾個字, 該唸什麼）
+ZHUYIN_CHECKS = [
+    ("重複無限次", 0, "ㄔㄨㄥˊ"), ("還沒反應", 0, "ㄏㄞˊ"), ("數一數", 0, "ㄕㄨˇ"), ("數一數", 2, "ㄕㄨˇ"),
+    ("做得完", 1, "˙ㄉㄜ"), ("看得到", 1, "˙ㄉㄜ"), ("號碼得一樣", 2, "ㄉㄟˇ"),
+    ("一個", 0, "ㄧˊ"), ("一次", 0, "ㄧˊ"), ("一頂", 0, "ㄧˋ"), ("第一", 1, "ㄧ"),
+    ("不要", 0, "ㄅㄨˊ"), ("不用", 0, "ㄅㄨˊ"),
+    ("長長的", 0, "ㄔㄤˊ"), ("調暗", 0, "ㄊㄧㄠˊ"), ("快樂", 1, "ㄌㄜˋ"), ("音樂", 1, "ㄩㄝˋ"),
+    ("教過", 0, "ㄐㄧㄠ"), ("板子", 1, "˙ㄗ"), ("電子", 1, "ㄗˇ"),
+    ("彈一個音", 0, "ㄊㄢˊ"), ("挑一個", 0, "ㄊㄧㄠ"), ("挑戰", 0, "ㄊㄧㄠˇ"),
+    ("空白處", 2, "ㄔㄨˋ"), ("卡住", 0, "ㄑㄧㄚˇ"), ("卡片", 0, "ㄎㄚˇ"), ("左邊塞", 2, "ㄙㄞ"),
+    ("座標的寫法", 2, "˙ㄉㄜ"), ("每一步都會", 3, "ㄉㄡ"),
+    ("用香蕉當琴鍵", 3, "ㄉㄤˋ"), ("當啟動時", 0, "ㄉㄤ"), ("接不了", 2, "ㄌㄧㄠˇ"),
+]
+
+def check_zhuyin():
+    bad = []
+    for text, i, want in ZHUYIN_CHECKS:
+        got = zhuyin_of(text)[i][1]
+        if got != want:
+            bad.append(f"「{text}」的「{text[i]}」應該唸 {want}，現在是 {got}")
+    for c, r, _ in ZHUYIN_FIX:
+        if r not in (PHONIC.get(c) or []):
+            bad.append(f"ZHUYIN_FIX：「{c}」在字型裡沒有 {r} 這個讀音")
+    assert not bad, "注音讀音不對：\n  " + "\n  ".join(bad)
+
+def _tone(r):
+    if r.startswith("˙"):
+        return 0
+    for mark, t in (("ˊ", 2), ("ˇ", 3), ("ˋ", 4)):
+        if r.endswith(mark):
+            return t
+    return 1
+
+def _choose(chars):
+    """每個位置選定的讀音（None＝不判斷，用字型預設）。
+    比對照搬 ime.js 的 autoSelect：依讀音順序、詞條順序，第一個命中就採用。"""
+    n = len(chars)
+    sel = [None] * n
+
+    def hit(i, c, p):
+        pos = p.find("*")
+        s0 = i - pos
+        if pos < 0 or s0 < 0 or s0 + len(p) > n:
+            return None
+        return s0 if "".join(chars[s0:s0 + len(p)]) == p.replace("*", c) else None
+
+    fix = {}
+    for c, r, pats in ZHUYIN_FIX:
+        fix.setdefault(c, []).append((r, pats))
+    for table in (fix, POYIN):
+        for i, c in enumerate(chars):
+            if sel[i] is not None or c not in table:
+                continue
+            for r, pats in table[c]:
+                s0 = next((x for p in pats for x in [hit(i, c, p)] if x is not None), None)
+                if s0 is None:
+                    continue
+                p = next(p for p in pats if hit(i, c, p) == s0)
+                for x, pc in enumerate(p):
+                    if pc == "*" and sel[s0 + x] is None:
+                        sel[s0 + x] = r
+                break
+
+    # 一／不 變調：詞庫沒判到的，看下一個字的聲調
+    for i, c in enumerate(chars):
+        if c not in ("一", "不") or sel[i] is not None or i + 1 >= n or chars[i + 1] not in PHONIC:
+            continue
+        t = _tone(sel[i + 1] or PHONIC[chars[i + 1]][0])
+        if c == "一" and t == 4:
+            sel[i] = "ㄧˊ"
+        elif c == "一" and t in (1, 2, 3):
+            sel[i] = "ㄧˋ"
+        elif c == "不" and t == 4:
+            sel[i] = "ㄅㄨˊ"
+    return sel
+
+def zhuyin_of(text):
+    """[(字, 讀音), …]——給回歸斷言和審查報告用。"""
+    chars = list(text)
+    return [(c, r or (PHONIC.get(c) or [None])[0]) for c, r in zip(chars, _choose(chars))]
+
+# 這些標籤裡的字不插選擇器（積木原始碼、腳本、頁首）；行內標籤當成透明，其他標籤當斷點，
+# 不然「<b>重</b>複」會被切開比不到詞，跨段落又可能誤判。
+_IVS_SKIP = {"head", "script", "style", "code", "pre", "title", "textarea"}
+_IVS_INLINE = {"b", "i", "em", "strong", "u", "small", "sup", "sub", "span", "a", "mark", "s"}
+
+def add_ivs(doc):
+    parts = re.split(r"(<[^>]*>)", doc)
+    stream, skip = [], 0                     # (part 索引, 字元索引, 字)；斷點是 (None, None, "\n")
+    for k, part in enumerate(parts):
+        if part.startswith("<"):
+            m = re.match(r"<\s*(/?)\s*([A-Za-z][A-Za-z0-9]*)", part)
+            if not m:
+                continue                     # <!doctype>、註解
+            closing, name = m.group(1) == "/", m.group(2).lower()
+            if name in _IVS_SKIP:
+                skip = max(0, skip - 1) if closing else skip + 1
+            if name not in _IVS_INLINE:
+                stream.append((None, None, "\n"))
+            continue
+        if not skip:
+            stream.extend((k, ci, ch) for ci, ch in enumerate(part))
+    put = {}
+    for (k, ci, ch), r in zip(stream, _choose([x[2] for x in stream])):
+        if k is None or r is None:
+            continue
+        rs = PHONIC.get(ch) or []
+        assert r in rs, f"讀音資料對不上：「{ch}」沒有 {r}（zhuyin/ 跟字型不是同一版？）"
+        if rs.index(r):
+            put.setdefault(k, {})[ci] = chr(VS_BASE + rs.index(r))
+    for k, m in put.items():
+        parts[k] = "".join(ch + m.get(i, "") for i, ch in enumerate(parts[k]))
+    return "".join(parts)
+
+
 def page(cur, body, title, lesson_attr=""):
-    return (head(title, blocks=True) + f'<body{lesson_attr}>' + topbar(focus_btn=True, side_btn=True) +
+    return add_ivs(head(title, blocks=True) + f'<body{lesson_attr}>' + topbar(focus_btn=True, side_btn=True) +
             '<div class="wrap"><div class="layout">' + sidebar(cur) +
             '<main class="content">' + body + '</main></div></div>\n<script src="app.js"></script></body></html>\n')
 
@@ -1091,9 +1270,9 @@ def build_index():
         + "".join(cards) +
         '<footer>micro:bit 積木冒險 · 為小小創客打造 · 用 MakeCode 積木從零開始</footer>'
     )
-    open(os.path.join(REPO, "index.html"), "w").write(
+    open(os.path.join(REPO, "index.html"), "w").write(add_ivs(
         head("micro:bit 積木冒險 · 給小朋友的第一堂程式課") + "<body>" + topbar() +
-        '<div class="wrap">' + body + '</div>\n<script src="app.js"></script></body></html>\n')
+        '<div class="wrap">' + body + '</div>\n<script src="app.js"></script></body></html>\n'))
 
 # ================= 準備篇 =================
 def build_l0():
@@ -3376,6 +3555,7 @@ def build_g3():
     write_game("g3", body, "101 遊戲：躲石頭")
 
 def main():
+    check_zhuyin()
     # 先檢查遊戲宣告的 uses 都對得上 BLOCKS，對不上就直接失敗，
     # 免得教材寫「用了某塊」但實際沒有那塊積木。
     # 拿實測資料檢查圖鑑每一塊都真的在它宣稱的抽屜裡

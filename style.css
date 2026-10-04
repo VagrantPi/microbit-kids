@@ -1,6 +1,19 @@
 /* ===== micro:bit 積木冒險 · 給小朋友的教材 ===== */
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@500;600;700&display=swap');
 
+/* ===== 注音（2026-10-04 起全站加注音）=====
+   注音粉圓：每個中文字旁邊直接帶注音（右側直排，跟課本一樣）。
+   破音字唸哪個音，是 build.py 在字後面插「異體字選擇器」決定的，字型本身不會看上下文。
+   unicode-range 只包中文、注音、全形標點和選擇器，英文數字照舊用 Baloo 2。
+   積木圖（MakeCode 的 SVG）用它自己的字型，不受這裡影響——改字型前後要比對積木尺寸。 */
+@font-face{
+  font-family:'BpmfHuninn';
+  src:url('fonts/BpmfHuninn-Regular.ttf') format('truetype');
+  font-display:swap;
+  unicode-range:U+3000-303F,U+3105-312F,U+31A0-31BF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,
+    U+FE30-FE4F,U+FF00-FFEF,U+20000-2FA1F,U+E0100-E01EF;
+}
+
 :root{
   --bg:#fff6ec; --bg2:#ffeede;
   --ink:#2f2a44; --ink2:#6b6480; --muted:#b8b0c8;
@@ -20,7 +33,7 @@ html[data-theme=dark]{
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;font-family:'Baloo 2','Fredoka',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
+body{margin:0;font-family:'Baloo 2','Fredoka','BpmfHuninn',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
   background:radial-gradient(1200px 600px at 80% -10%,var(--bg2),transparent),var(--bg);
   color:var(--ink);line-height:1.7;font-size:17px}
 

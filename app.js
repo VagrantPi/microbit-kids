@@ -120,7 +120,7 @@ if (fb) {
     var on = focusOn();
     fb.classList.toggle('on', on);
     fb.textContent = on ? '🎯' : '📖';
-    fb.title = on ? '專注模式：開（一次只看一步）' : '專注模式：關（全部攤開）';
+    fb.title = on ? '專注模式：開（一\u{E01E1}次只看一\u{E01E1}步）' : '專注模式：關（全部攤開）';
   };
   syncFocusBtn();
   fb.onclick = function(){
@@ -153,7 +153,7 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
     // 還留著原始 <code> 的片段就是沒畫出來的，只替換那些
     document.querySelectorAll('.mc').forEach(function (m) {
       if (m.querySelector(SEL)) {
-        m.innerHTML = '<div class="mc-offline">🧩 積木圖要連上網路才看得到，先照著文字做也可以</div>';
+        m.innerHTML = '<div class="mc-offline">🧩 積木圖要連上網路才看得\u{E01E1}到，先照著文字做也可以</div>';
       }
     });
     root.classList.add(ok ? 'blocks-ready' : 'blocks-offline');
@@ -363,9 +363,9 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
         '<p class="ghint">在下面打上 <b>answer</b></p>' +
         '<input class="gin" type="text" autocapitalize="none" autocorrect="off" ' +
                'spellcheck="false" aria-label="打 answer">' +
-        '<p class="gerr" hidden>打錯了，再試一次 🙈</p>' +
+        '<p class="gerr" hidden>打錯了，再試一\u{E01E1}次 🙈</p>' +
         '<div class="gbtns">' +
-          '<button class="btn ghost gno" type="button">再想一下</button>' +
+          '<button class="btn ghost gno" type="button">再想一\u{E01E1}下</button>' +
           '<button class="btn g gyes" type="button">看答案</button>' +
         '</div>' +
       '</div>';
@@ -537,7 +537,7 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
         opts.forEach(function (x) { if (x.getAttribute('data-cat') === want) x.classList.add('right'); });
         var name = '';
         opts.forEach(function (x) { if (x.getAttribute('data-cat') === want) name = x.textContent.trim(); });
-        qMsg.textContent = '它在「' + name + '」抽屜喔，再看一次 👀';
+        qMsg.textContent = '它在「' + name + '」抽屜喔，再看一\u{E01E1}次 👀';
         qMsg.className = 'qmsg no';
       }
       qNext.style.display = 'block';
