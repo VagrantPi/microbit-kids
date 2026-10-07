@@ -56,7 +56,8 @@ def head(title, blocks=False):
             '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
             f'<title>{esc(title)}</title>\n<link rel="stylesheet" href="style.css">\n'
             '<script>try{if(localStorage.getItem("mb_theme")==="dark")document.documentElement.setAttribute("data-theme","dark");'
-            'if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed")}catch(e){}</script>\n'
+            'if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed");'
+            'if(localStorage.getItem("mb_zhuyin")==="off")document.documentElement.classList.add("zy-off")}catch(e){}</script>\n'
             + embed +
             '</head>')
 
@@ -67,11 +68,14 @@ def topbar(focus_btn=False, side_btn=False):
           if focus_btn else '')
     sbtn = ('<button class="iconbtn" id="sideBtn" title="收合選單" aria-label="收合選單">☰</button>'
             if side_btn else '')
+    # 注音開關：只有有步驟卡的頁面才有注音可開關，所以跟專注模式同一個條件
+    zb = ('<button class="iconbtn on" id="zyBtn" title="注音" aria-label="切換注音" aria-pressed="true">ㄅ</button>'
+          if focus_btn else '')
     return ('<header class="bar"><div class="in">'
             + sbtn +
             '<a class="brand" href="index.html" style="text-decoration:none"><span class="chip">micro:bit</span><span class="wm"> 積木冒險</span></a>'
             '<span class="spacer"></span>'
-            + fb +
+            + fb + zb +
             '<button class="iconbtn" id="themeBtn" title="換個顏色" aria-label="切換深淺色">🌙</button>'
             '</div></header>')
 

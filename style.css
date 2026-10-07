@@ -10,9 +10,26 @@
   font-family:'BpmfHuninn';
   src:url('fonts/BpmfHuninn-Regular.ttf') format('truetype');
   font-display:swap;
+  size-adjust:112%;      /* 注音偏小，只放大用到這個字型的中文，英文數字和按鈕不受影響 */
   unicode-range:U+3000-303F,U+3105-312F,U+31A0-31BF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,
     U+FE30-FE4F,U+FF00-FFEF,U+20000-2FA1F,U+E0100-E01EF;
 }
+
+/* ===== 注音只出現在「他動手時要讀的地方」（2026-10-07）=====
+   全站都加，使用者看了覺得密密麻麻、太壓迫，所以頁面預設不用注音字型，
+   只有下面這些區塊、而且右上角「ㄅ」開關打開時（<html> 沒有 zy-off）才用。
+   HTML 裡的讀音選擇器全部保留——在一般字型裡它們完全隱形（實測寬度不變）。
+   想讓別的區塊也有注音，把它的 class 加進下面的 :is(…) 就好。 */
+:root:not(.zy-off) :is(.step,.gate,.dex,.quiz,.try,.check){
+  font-family:'Baloo 2','Fredoka','BpmfHuninn',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
+  line-height:2.2;       /* 注音在字的右邊，擠的是上下，所以拉開行距 */
+}
+:root:not(.zy-off) :is(.optional>div,.gate p,.dexcard .d){line-height:2.2}
+/* 按鈕用 font:inherit 會連行距一起繼承，要拉回來，不然按鈕會變很高 */
+:root:not(.zy-off) :is(.step,.gate,.quiz,.dex) :is(button,.btn){line-height:1.4}
+/* 給大人的補充：不加注音、行距照舊 */
+:root:not(.zy-off) .step details.adult{
+  font-family:'Baloo 2','Fredoka',"PingFang TC","Noto Sans TC",system-ui,sans-serif;line-height:1.7}
 
 :root{
   --bg:#fff6ec; --bg2:#ffeede;
@@ -33,7 +50,7 @@ html[data-theme=dark]{
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;font-family:'Baloo 2','Fredoka','BpmfHuninn',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
+body{margin:0;font-family:'Baloo 2','Fredoka',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
   background:radial-gradient(1200px 600px at 80% -10%,var(--bg2),transparent),var(--bg);
   color:var(--ink);line-height:1.7;font-size:17px}
 

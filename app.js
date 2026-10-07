@@ -10,6 +10,23 @@ if (tb) tb.onclick = function () {
   try { localStorage.setItem('mb_theme', cur); } catch (e) {}
 };
 
+// 注音開／關（預設開、記住選擇）。開著時只有步驟卡這些「他動手時要讀的地方」有注音，
+// 範圍在 style.css 用 :root:not(.zy-off) 決定；head 的小腳本會先套一次，關著時不會閃注音。
+try { if (localStorage.getItem('mb_zhuyin') === 'off') root.classList.add('zy-off'); } catch (e) {}
+var zb = document.getElementById('zyBtn');
+function zySync() {
+  if (!zb) return;
+  var on = !root.classList.contains('zy-off');
+  zb.classList.toggle('on', on);
+  zb.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+zySync();
+if (zb) zb.onclick = function () {
+  var off = root.classList.toggle('zy-off');
+  try { localStorage.setItem('mb_zhuyin', off ? 'off' : 'on'); } catch (e) {}
+  zySync();
+};
+
 // 側邊欄收合
 try { if (localStorage.getItem('mb_side') === 'collapsed') root.classList.add('side-collapsed'); } catch (e) {}
 var sb = document.getElementById('sideBtn');
