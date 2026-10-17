@@ -556,6 +556,66 @@ def final(lesson_id, items):
     out.append('</ul>')
     return "".join(out)
 
+# ================= 「做給我看」：不靠孩子自己說懂 =================
+# 2026-10-17 老師回報：孩子問他懂不懂都說懂，考他卻不會；而且小班制，大人沒辦法一直坐在旁邊。
+# 自己打勾的「我學會了」等於每次問他懂嗎，所以改成網站自己驗：
+#   redo()      ：不看步驟自己重做，提示要打 answer 才開（有開過會記下來）
+#   numcheck()  ：看程式、先選有沒有把握、再用想的打出螢幕上的數字。題目由 app.js 隨機出，
+#                 頁面上沒有答案可以偷看；常見的錯誤想法會算出特定的錯數字，所以知道他錯在哪。
+#                 錯兩次就停下來請他舉手，要老師打 TEACHER_WORD 才能繼續（減速丘不是鎖）。
+#   final_auto()：完成清單改成通過考題才自動打勾，⭐ 今天通關、⭐⭐ 下一課開頭的暖身還記得。
+# 紀錄存在瀏覽器的 mb_ev_<id>，畫面右下角的色塊讓老師走過去瞄一眼就知道狀況。
+TEACHER_WORD = "teacher"
+
+def redo(intro, answer):
+    return ('<section class="redo"><h2>🧠 不看步驟，自己再做一次</h2>' + intro
+            + optional("🙈 真的卡住了？看完整的程式", answer, cls="answer")
+            + '</section>')
+
+def numcheck(cid, kind, program, ask, diags, after_ok=""):
+    """diags：{錯誤想法代號: 一句提示}，代號要跟 app.js 的 CHECK_KINDS[kind] 對得上；
+    "other" 是對不上任何錯誤想法時的提示。"""
+    fb = "".join(f'<div class="fb no" data-diag="{k}" hidden>{v}</div>' for k, v in diags.items())
+    return (f'<section class="qcheck" data-check="{cid}" data-kind="{kind}" data-tw="{TEACHER_WORD}">'
+            + program + ask
+            + '<div class="seq" aria-label="按按鈕的順序"></div>'
+            '<p>最後螢幕上是多少？<b>先用想的</b>，不要按 🤔</p>'
+            '<div class="conf"><span>先選一個：</span>'
+            '<button class="btn ghost" type="button" data-c="sure">😀 我有把握</button>'
+            '<button class="btn ghost" type="button" data-c="unsure">🤔 我不確定</button></div>'
+            '<div class="ansrow" hidden><input class="ans" type="text" inputmode="numeric" '
+            'pattern="[0-9]*" maxlength="2" autocomplete="off" aria-label="打數字">'
+            '<button class="btn g go" type="button">確定</button></div>'
+            f'<div class="fb ok" hidden>答對了 ⭐{after_ok}</div>'
+            + fb +
+            '<div class="fb try" hidden>拿起板子，照上面的順序按一次，看看螢幕是多少 👀</div>'
+            '<button class="btn ghost nextq" type="button" hidden>換一題 🔄</button>'
+            '<div class="fb help" hidden><b>🙋 錯兩次了，舉手請老師過來看一下。</b>'
+            '<div class="trow"><input class="tcode" type="password" autocomplete="off" '
+            'aria-label="老師暗號"><button class="btn ghost tgo" type="button">老師</button></div></div>'
+            '</section>')
+
+def final_auto(items):
+    """items：[(文字, 證據 id, 是不是下一課才驗)]。不能自己點，通過考題才會打勾。"""
+    out = ['<h2>✅ 我學會了</h2><p>這裡不能自己勾，要<b>答對</b>上面的題目才會亮 ⭐</p>'
+           '<ul class="check final auto">']
+    for t, ev, later in items:
+        cls = ' class="later"' if later else ''
+        out.append(f'<li data-ev="{ev}"{cls}><span class="box"></span><span>{t}</span></li>')
+    out.append('</ul>')
+    return "".join(out)
+
+# 第 4 課的計數器：通關數字和第 5 課的暖身都看這一支
+COUNTER_TS = ("let count = 0\n" + ts_button("A", "count += 1", "basic.showNumber(count)")
+              + "\n" + ts_button("B", "count = 0", "basic.showNumber(count)"))
+# 錯誤想法 → 提示（代號對應 app.js 的 CHECK_KINDS.counter）。只點出觀念，不給答案。
+COUNTER_DIAGS = {
+    "aset": "你算的好像是：按 A 就<b>變成 1</b>。<br>可是「改變 1」是在原本的數字上<b>再加 1</b> 喔。",
+    "bkeep": "你好像<b>忘了 B</b>。<br>按 B 會把盒子裡的數字<b>整個換成 0</b>。",
+    "bplus": "按 B <b>不是加 1</b> 喔。<br>「設為 0」是把盒子裡的數字<b>整個換成 0</b>。",
+    "other": "一個一個按，每按一下就想：「盒子裡<b>現在</b>是多少？」",
+}
+
 def nav(prev=None, next=None):
     left = f'<a class="btn ghost" href="{prev[0]}.html">← {esc(prev[1])}</a>' if prev else '<a class="btn ghost" href="index.html">← 回地圖</a>'
     right = f'<a class="btn g" href="{next[0]}.html">{esc(next[1])} →</a>' if next else ''
@@ -1622,13 +1682,29 @@ def build_l4():
                      "驗收方式：問他「如果我想一次加 5，要改哪裡？」"
                      "答得出來改「改變」後面那個數字，就是懂了。")) +
 
+        redo('<p>把剛剛拼的積木<b>全部拖到垃圾桶</b> 🗑️，只留「當啟動時」。</p>'
+             '<p>上面的步驟<b>不要看</b>，自己再拼一次計數器：A 加 1，B 回到 0。</p>'
+             + look("點 A 會出現 1、2、3，點 B 會回到 0，就成功了。"),
+             mcp(COUNTER_TS)) +
+
+        '<h2>🔢 通關數字</h2>'
+        + numcheck("l4", "counter", mcp(COUNTER_TS),
+                   '<p>上面是你剛剛做的計數器。按按鈕的順序是：</p>',
+                   COUNTER_DIAGS, after_ok="　拿板子照順序按一次，看看是不是真的這樣 👀")
+        + adult("自己重做是在看他是不是<b>真的記得</b>，不是照著步驟搬；看提示要打 <code>answer</code>，"
+                "有打開過會記下來。<br>"
+                "通關數字每次都不一樣，答案不在頁面上。打錯的數字會對到常見的錯誤想法，"
+                "只給那一句提示、不公布答案，再換一題。"
+                "錯兩次會停下來請他舉手：你看過之後，在框框裡打 <code>" + TEACHER_WORD + "</code> 就能繼續。<br>"
+                "右下角的小圓點：🟢 順利、🟡 錯過或看過提示、🔴 在等你過去、"
+                "🟣 說有把握卻答錯（就是「說懂但不會」）。") +
+
         tryit("把「改變 <code>1</code>」改成「改變 <code>2</code>」，看每按一下跳多少。",
               "做一個<b>比分板</b>：A 加 1 分，B 改成「改變 <code>-1</code>」變成減 1 分。") +
 
-        final("l4", [
-            "我知道變數是一個會記住數字的小盒子",
-            "我會用「建立一個變數…」做一個 count",
-            "我分得出「改變（加上去）」和「設為（整個換掉）」不一樣",
+        final_auto([
+            ("⭐ 通關數字答對了", "l4", False),
+            ("⭐⭐ 下一課開頭還記得（第 5 課的暖身題）", "l4w", True),
         ]) + nav_for("l4")
     )
     write("l4", body, "第 4 課：神奇計數器")
@@ -1637,6 +1713,12 @@ def build_l4():
 def build_l5():
     body = (
         top("l5", "第 5 課", "🔁 重複的力量") +
+        '<h2>🔥 暖身：還記得上一課嗎？</h2>'
+        + numcheck("l4w", "counter", mcp(COUNTER_TS),
+                   '<p>這是第 4 課的計數器。<b>不用拼</b>，看著它想就好。按按鈕的順序是：</p>',
+                   COUNTER_DIAGS, after_ok="　第 4 課拿到 ⭐⭐")
+        + adult("隔一次上課再考同一個觀念，才看得出他是真的記得，還是上次剛看過所以答得出來。"
+                "答對會點亮第 4 課的 ⭐⭐；答錯的話，下課前帶他回第 4 課的最後一步看一下。") +
         goal("⭐", "讓星星<b>閃 4 次</b>，再讓 micro:bit <b>自己數數</b>。") +
 
         '<p>想讓星星閃 4 次，要拼 4 遍一樣的積木嗎？太累了 🥱</p>'

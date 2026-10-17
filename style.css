@@ -20,13 +20,16 @@
    只有下面這些區塊、而且右上角「ㄅ」開關打開時（<html> 沒有 zy-off）才用。
    HTML 裡的讀音選擇器全部保留——在一般字型裡它們完全隱形（實測寬度不變）。
    想讓別的區塊也有注音，把它的 class 加進下面的 :is(…) 就好。 */
-:root:not(.zy-off) :is(.step,.gate,.dex,.quiz,.try,.check){
+:root:not(.zy-off) :is(.step,.gate,.dex,.quiz,.try,.check,.qcheck,.redo){
   font-family:'Baloo 2','Fredoka','BpmfHuninn',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
   line-height:2.2;       /* 注音在字的右邊，擠的是上下，所以拉開行距 */
 }
 :root:not(.zy-off) :is(.optional>div,.gate p,.dexcard .d){line-height:2.2}
 /* 按鈕用 font:inherit 會連行距一起繼承，要拉回來，不然按鈕會變很高 */
-:root:not(.zy-off) :is(.step,.gate,.quiz,.dex) :is(button,.btn){line-height:1.4}
+:root:not(.zy-off) :is(.step,.gate,.quiz,.dex,.qcheck,.redo) :is(button,.btn){line-height:1.4}
+/* 「做給我看」區塊裡的給大人：同上，不加注音 */
+:root:not(.zy-off) :is(.qcheck,.redo) details.adult{
+  font-family:'Baloo 2','Fredoka',"PingFang TC","Noto Sans TC",system-ui,sans-serif;line-height:1.7}
 /* 給大人的補充：不加注音、行距照舊 */
 :root:not(.zy-off) .step details.adult{
   font-family:'Baloo 2','Fredoka',"PingFang TC","Noto Sans TC",system-ui,sans-serif;line-height:1.7}
@@ -474,3 +477,36 @@ html[data-theme=dark] .bigcard.learn{background:linear-gradient(120deg,#14311f,#
 .gate .gbtns .btn{flex:1;text-align:center;font-family:inherit;font-size:16px;
   cursor:pointer;padding:11px 12px}
 .gate .gbtns .btn.g{border:3px solid var(--go)}
+
+/* ===== 「做給我看」：自己重做、通關數字、自動打勾、狀態圓點（2026-10-17）===== */
+.redo,.qcheck{background:var(--card);border:3px solid var(--line);border-radius:20px;padding:16px 18px;margin:14px 0}
+.redo h2{margin-top:0}
+.qcheck .seq{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.qcheck .key{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:22px;color:#fff;box-shadow:var(--shadow2)}
+.qcheck .key.kA{background:var(--brand)}
+.qcheck .key.kB{background:var(--accent2)}
+.qcheck .conf{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.qcheck .conf .btn.cur{border-color:var(--brand);background:#f3ecff}
+.qcheck .ansrow,.qcheck .trow{display:flex;gap:8px;align-items:center;margin:8px 0}
+.qcheck .ans{width:90px;font:inherit;font-size:28px;font-weight:800;text-align:center;padding:4px 8px;
+  border:3px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)}
+.qcheck .tcode{width:140px;font:inherit;padding:6px 10px;border:3px solid var(--line);border-radius:12px;
+  background:var(--card);color:var(--ink)}
+.qcheck .fb{border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600}
+.qcheck .fb.ok{background:#eafff2;border:3px solid var(--go)}
+.qcheck .fb.no{background:#fff4e5;border:3px solid var(--accent2)}
+.qcheck .fb.try{background:transparent;padding:2px 4px}
+.qcheck .fb.help{background:#ffeef3;border:3px solid var(--accent)}
+.qcheck [hidden]{display:none!important}
+.check.auto li{cursor:default}
+.check.auto li:hover{border-color:var(--line)}
+.check.auto li.ok:hover{border-color:var(--go)}
+.check.auto li.later:not(.ok){opacity:.7;border-style:dashed}
+:root[data-theme="dark"] :is(.qcheck .fb.ok,.qcheck .fb.no,.qcheck .fb.help,.qcheck .conf .btn.cur){background:var(--bg2)}
+.mbstat{position:fixed;right:14px;bottom:14px;width:18px;height:18px;border-radius:50%;z-index:50;
+  border:3px solid var(--card);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.mbstat[data-s="green"]{background:#25c26e}
+.mbstat[data-s="yellow"]{background:#ffb038}
+.mbstat[data-s="purple"]{background:#9b5cff}
+.mbstat[data-s="red"]{background:#ff3b5c}

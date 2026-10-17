@@ -35,12 +35,33 @@ if (sb) sb.onclick = function () {
   try { localStorage.setItem('mb_side', c ? 'collapsed' : 'open'); } catch (e) {}
 };
 
+// ===== 「做給我看」的紀錄 =====
+// 每個考題一份：mb_ev_<id> = {pass, lock, wrong, hint, tries:[{at, seq, conf, ans, want, diag, ms}]}。
+// pass 是答對過；wrong 是這次舉手前錯了幾次，老師打暗號後歸零；hint 是看過「不看步驟自己做」的提示。
+function evGet(id){
+  try { return JSON.parse(localStorage.getItem('mb_ev_' + id)) || {}; } catch(e){ return {}; }
+}
+function evSet(id, ev){
+  try { localStorage.setItem('mb_ev_' + id, JSON.stringify(ev)); } catch(e){}
+}
+
+// 「我學會了」的自動版（.check.auto）：不能自己點，看紀錄有沒有答對過
+function renderAuto(){
+  document.querySelectorAll('.check.auto li[data-ev]').forEach(function(li){
+    var ok = !!evGet(li.getAttribute('data-ev')).pass;
+    li.classList.toggle('ok', ok);
+    li.querySelector('.box').textContent = ok ? '✓' : '';
+  });
+}
+renderAuto();
+
 // 打勾清單 + 完成課程記錄
 var lessonId = document.body.getAttribute('data-lesson') || '';
 function doneKey(id){ return 'mb_done_' + id; }
 function markLessonDone(){
-  // 只看課末那份「我學會了」清單，步驟打勾不算進完成判定
-  var boxes = document.querySelectorAll('.check.final li');
+  // 只看課末那份「我學會了」清單，步驟打勾不算進完成判定。
+  // .later（⭐⭐，下一課才驗）不擋這一課的完成章，不然今天做完永遠蓋不到章。
+  var boxes = document.querySelectorAll('.check.final li:not(.later)');
   if (!boxes.length || !lessonId) return;
   var all = true;
   boxes.forEach(function(li){ if (!li.classList.contains('ok')) all = false; });
@@ -48,7 +69,7 @@ function markLessonDone(){
   var badge = document.getElementById('doneBadge');
   if (badge) badge.style.display = all ? 'inline-flex' : 'none';
 }
-document.querySelectorAll('.check li').forEach(function(li){
+document.querySelectorAll('.check:not(.auto) li').forEach(function(li){
   var k = 'mb_chk_' + lessonId + '_' + li.getAttribute('data-k');
   try { if (localStorage.getItem(k) === '1'){ li.classList.add('ok'); li.querySelector('.box').textContent='✓'; } } catch(e){}
   li.onclick = function(){
@@ -429,7 +450,16 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
     s.addEventListener('click', function (e) {
       if (d.open) return;          // 收起來不用擋，只擋「要打開」
       e.preventDefault();          // 先不要展開，等他打對
-      open(function () { d.open = true; });
+      open(function () {
+        d.open = true;
+        // 「不看步驟自己做」的提示：記下來給老師看（右下角會變黃）
+        if (d.closest && d.closest('.redo') && lessonId) {
+          var ev = evGet(lessonId);
+          ev.hint = true;
+          evSet(lessonId, ev);
+          document.dispatchEvent(new CustomEvent('mb:ev'));
+        }
+      });
     });
   });
 })();
@@ -562,4 +592,191 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
   });
 
   qNext.onclick = ask;
+})();
+
+// ===== 通關數字（.qcheck）=====
+// 看程式 → 先選有沒有把握 → 用想的打出螢幕上的數字。
+// 題目每次隨機出，答案不在頁面上；打錯的數字拿去跟「常見的錯誤想法」算出來的結果比，
+// 對到哪一個就只亮那一句提示（提示文字在 HTML 裡，build.py 才加得上注音）。
+// 錯兩次就鎖住請他舉手，老師打暗號（data-tw）才繼續。已經通關之後的練習不會再鎖。
+var CHECK_KINDS = {
+  // 第 4 課計數器：A「改變 1」＋顯示，B「設為 0」＋顯示
+  counter: {
+    modes: ['aset', 'bkeep', 'bplus'],     // 對應 build.py 的 COUNTER_DIAGS
+    sim: function (seq, mode) {
+      var c = 0;
+      seq.forEach(function (k) {
+        if (k === 'A') c = mode === 'aset' ? 1 : c + 1;        // aset：以為「改變 1」是變成 1
+        else if (mode === 'bplus') c += 1;                     // bplus：以為 B 也是加
+        else if (mode !== 'bkeep') c = 0;                      // bkeep：忘了 B 會歸零
+      });
+      return c;
+    },
+    gen: function () {
+      // A×(1–3)、B、[A×(1–2)、B]、A×(2–4)：最後至少兩個 A，
+      // 這樣正確答案一定跟三種錯誤想法算出來的都不一樣，錯數字才分得出是哪一種。
+      function a(lo, hi) { var n = lo + Math.floor(Math.random() * (hi - lo + 1)), r = []; while (n--) r.push('A'); return r; }
+      var seq = a(1, 3).concat(['B']);
+      if (Math.random() < 0.5) seq = seq.concat(a(1, 2), ['B']);
+      return seq.concat(a(2, 4));
+    }
+  }
+};
+
+document.querySelectorAll('.qcheck').forEach(function (box) {
+  var id = box.getAttribute('data-check');
+  var kind = CHECK_KINDS[box.getAttribute('data-kind')];
+  if (!id || !kind) return;
+  var tw = (box.getAttribute('data-tw') || '').toLowerCase();
+  var seqEl = box.querySelector('.seq');
+  var confEl = box.querySelector('.conf');
+  var confBtns = Array.prototype.slice.call(box.querySelectorAll('.conf button'));
+  var ansRow = box.querySelector('.ansrow');
+  var ans = box.querySelector('.ans');
+  var nextq = box.querySelector('.nextq');
+  var help = box.querySelector('.fb.help');
+  var tcode = box.querySelector('.tcode');
+  var cur = null, conf = null, shownAt = 0, lastSeq = '';
+
+  function hideFb() { box.querySelectorAll('.fb').forEach(function (f) { f.hidden = true; }); }
+  function show(sel) { var f = box.querySelector(sel); if (f) f.hidden = false; }
+
+  function newQ() {
+    var seq, tries = 0;
+    do { seq = kind.gen(); } while (seq.join('') === lastSeq && ++tries < 20);
+    lastSeq = seq.join('');
+    cur = { seq: seq, want: kind.sim(seq, 'ok') };
+    seqEl.innerHTML = seq.map(function (k) { return '<span class="key k' + k + '">' + k + '</span>'; }).join('');
+    conf = null;
+    confBtns.forEach(function (b) { b.classList.remove('cur'); b.disabled = false; });
+    confEl.hidden = false;
+    ansRow.hidden = true;
+    ans.value = '';
+    ans.disabled = false;
+    nextq.hidden = true;
+    hideFb();
+    shownAt = Date.now();
+  }
+
+  function locked() {
+    confEl.hidden = true;
+    ansRow.hidden = true;
+    nextq.hidden = true;
+    hideFb();
+    show('.fb.help');
+  }
+
+  confBtns.forEach(function (b) {
+    b.onclick = function () {
+      conf = b.getAttribute('data-c');
+      confBtns.forEach(function (x) { x.classList.toggle('cur', x === b); });
+      ansRow.hidden = false;
+      ans.focus();
+    };
+  });
+
+  function submit() {
+    var v = ans.value.trim();
+    if (!cur || !conf || !/^\d{1,2}$/.test(v)) { ans.select(); return; }
+    var n = parseInt(v, 10), ok = n === cur.want, diag = ok ? '' : 'other';
+    if (!ok) {
+      for (var i = 0; i < kind.modes.length; i++) {
+        if (kind.sim(cur.seq, kind.modes[i]) === n) { diag = kind.modes[i]; break; }
+      }
+    }
+    var ev = evGet(id);
+    var practice = !!ev.pass;          // 通關後的練習：照樣記，但不鎖
+    ev.tries = ev.tries || [];
+    ev.tries.push({ at: new Date().toISOString(), seq: cur.seq.join(''), conf: conf,
+                    ans: n, want: cur.want, diag: diag, ms: Date.now() - shownAt });
+    ans.disabled = true;
+    confBtns.forEach(function (x) { x.disabled = true; });
+    hideFb();
+    if (ok) {
+      ev.pass = true;
+      ev.wrong = 0;
+      show('.fb.ok');
+      nextq.hidden = false;
+    } else {
+      if (!practice) ev.wrong = (ev.wrong || 0) + 1;
+      if (!practice && ev.wrong >= 2) {
+        ev.lock = true;
+      } else {
+        show('.fb.no[data-diag="' + diag + '"]');
+        show('.fb.try');
+        nextq.hidden = false;
+      }
+    }
+    evSet(id, ev);
+    if (ev.lock) locked();
+    renderAuto();
+    markLessonDone();
+    document.dispatchEvent(new CustomEvent('mb:ev'));
+  }
+
+  box.querySelector('.go').onclick = submit;
+  ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  nextq.onclick = newQ;
+
+  function unlock() {
+    if (tcode.value.trim().toLowerCase() !== tw) { tcode.value = ''; tcode.focus(); return; }
+    var ev = evGet(id);
+    ev.lock = false;
+    ev.wrong = 0;
+    ev.unlocks = (ev.unlocks || 0) + 1;
+    evSet(id, ev);
+    tcode.value = '';
+    newQ();
+    document.dispatchEvent(new CustomEvent('mb:ev'));
+  }
+  box.querySelector('.tgo').onclick = unlock;
+  tcode.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); unlock(); } });
+
+  newQ();
+  var ev0 = evGet(id);
+  if (ev0.lock) locked();
+  else if (ev0.pass) {
+    // 回到這頁時，通關過的直接顯示通關，想再練可以按換一題
+    confEl.hidden = true;
+    seqEl.innerHTML = '';
+    show('.fb.ok');
+    nextq.hidden = false;
+  }
+});
+
+// ===== 右下角的狀態圓點（給走過去的老師瞄一眼）=====
+// 🔴 鎖住在等老師 > 🟣 說有把握卻答錯過 > 🟡 還沒通關但錯過或看過提示 > 🟢 順利
+(function () {
+  var ids = Array.prototype.map.call(document.querySelectorAll('.qcheck'), function (b) {
+    return b.getAttribute('data-check');
+  });
+  if (document.querySelector('.redo') && lessonId && ids.indexOf(lessonId) < 0) ids.push(lessonId);
+  if (!ids.length) return;
+  var LABEL = {
+    red: '🔴 錯兩次了，在等老師',
+    purple: '🟣 說有把握，卻答錯過',
+    yellow: '🟡 錯過或看過提示，還沒通關',
+    green: '🟢 順利'
+  };
+  var dot = document.createElement('div');
+  dot.className = 'mbstat';
+  document.body.appendChild(dot);
+
+  function level(ev) {
+    var tries = ev.tries || [];
+    if (ev.lock) return 3;
+    if (tries.some(function (t) { return t.conf === 'sure' && t.diag; })) return 2;
+    if (!ev.pass && (ev.hint || tries.some(function (t) { return t.diag; }))) return 1;
+    return 0;
+  }
+  function paint() {
+    var lv = 0;
+    ids.forEach(function (i) { lv = Math.max(lv, level(evGet(i))); });
+    var s = ['green', 'yellow', 'purple', 'red'][lv];
+    dot.setAttribute('data-s', s);
+    dot.title = LABEL[s];
+    dot.setAttribute('aria-label', LABEL[s]);
+  }
+  paint();
+  document.addEventListener('mb:ev', paint);
 })();
