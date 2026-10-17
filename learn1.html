@@ -1,0 +1,116 @@
+<!doctype html><html lang="zh-Hant"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>積木入門 第 1 章：畫面</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem("mb_theme")==="dark")document.documentElement.setAttribute("data-theme","dark");if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed");if(localStorage.getItem("mb_zhuyin")==="off")document.documentElement.classList.add("zy-off")}catch(e){}</script>
+<script>document.cookie="PXT_LANG=zh-TW; path=/; max-age=31536000; SameSite=Lax"</script>
+<script async src="https://makecode.microbit.org/--embed"></script>
+</head><body data-lesson="learn1"><header class="bar"><div class="in"><button class="iconbtn" id="sideBtn" title="收合選單" aria-label="收合選單">☰</button><a class="brand" href="index.html" style="text-decoration:none"><span class="chip">micro:bit</span><span class="wm"> 積木冒險</span></a><span class="spacer"></span><button class="iconbtn" id="focusBtn" title="專注模式" aria-label="切換專注模式">🎯</button><button class="iconbtn on" id="zyBtn" title="注音" aria-label="切換注音" aria-pressed="true">ㄅ</button><button class="iconbtn" id="themeBtn" title="換個顏色" aria-label="切換深淺色">🌙</button></div></header><div class="wrap"><div class="layout"><aside class="side"><nav class="outline"><div class="cap">🗺️ 課程地圖</div><a class="lrow tool cur" href="learn.html"><span class="em">🧱</span><span>積木入門</span></a><a class="lrow tool" href="blocks.html"><span class="em">🔍</span><span>積木圖鑑</span></a><a class="lrow tool last" href="101.html"><span class="em">🎮</span><span>101 遊戲區</span></a><a class="lrow" href="l0.html"><span class="em">🔌</span><span>準備 · 送進板子󠇡</span></a><a class="lrow" href="l1.html"><span class="em">🔤</span><span>1. 認識 micro:bit</span></a><a class="lrow" href="l2.html"><span class="em">🎨</span><span>2. LED 畫畫板</span></a><a class="lrow" href="l3.html"><span class="em">🅰️</span><span>3. 按鈕魔法</span></a><a class="lrow" href="l4.html"><span class="em">🔢</span><span>4. 神奇計數器</span></a><a class="lrow" href="l5.html"><span class="em">🔁</span><span>5. 重󠇡複的力量</span></a><a class="lrow" href="l6.html"><span class="em">🎲</span><span>6. 搖一󠇢搖骰子󠇡</span></a><a class="lrow" href="l7.html"><span class="em">🦸</span><span>7. 超能力</span></a><a class="lrow" href="l8.html"><span class="em">🎵</span><span>8. 音樂󠇡盒</span></a><a class="lrow" href="l9.html"><span class="em">🏆</span><span>9. 電子寵物</span></a><a class="lrow" href="l10.html"><span class="em">📡</span><span>10. 廣播雙人</span></a><a class="lrow" href="l11.html"><span class="em">🎮</span><span>11. LED 小遊戲</span></a><a class="lrow" href="l12.html"><span class="em">🍌</span><span>12. 香蕉鋼琴</span></a></nav></aside><main class="content"><div class="crumb"><a href="index.html">課程地圖</a> / <a href="learn.html">積木入門</a> / 第 1 章</div><span class="eyebrow">積木入門 · 第 1 章</span><span id="doneBadge" class="eyebrow" style="display:none;background:var(--go);margin-left:8px">🎉 這一󠇡課完成！</span><h1>🖼️ 畫面</h1><div class="goal"><div class="big">🖼️</div><div><h3>今天只做一󠇡件事 🎯</h3><p>這一󠇢章認識 <b>6 塊</b>積木，<b>一󠇡次一󠇡塊</b>。</p></div></div><div class="note"><span class="hd">💡 旁邊開著 MakeCode 一󠇢起做</span>網址 <code>makecode.microbit.org</code>，按<b>「新增專案」</b>。<br>一󠇢邊看這頁、一󠇢邊在那邊拖，學得󠇡最快。</div><div class="note"><span class="hd">📖 這裡會用到兩個󠇡說法</span><b>「假的那台」</b>＝畫面左邊那台<b>假的 micro:bit</b>，不󠇡用真的板子󠇡也能先看效果（大人叫它模擬器）。<br><b>「帽子󠇡」</b>＝上面<b>沒有缺口</b>的積木，只能放最上面，像戴一󠇢頂帽子󠇡。</div><section class="step" data-k="s1"><div class="hd"><span class="n">1</span><span class="t">當啟動時</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-blocksxml">&lt;xml xmlns=&quot;https://developers.google.com/blockly/xml&quot;&gt;&lt;block type=&quot;pxt-on-start&quot;&gt;&lt;/block&gt;&lt;/xml&gt;</code></pre></div><p>一󠇢開機就做一󠇡次裡面的事。所有程式都從它開始。</p><div class="note"><span class="hd">👀 這塊要配別的積木才看得󠇡到</span>它自己不󠇡會在燈上畫東西，所以這裡沒有播放鍵——等一󠇡下到 MakeCode 拼起來就看得󠇡到了。</div><div class="find"><span class="dot b-basic"></span><b>不󠇡用去抽屜找</b>——開一󠇡個󠇡新專案，它<b>本來就在畫面上</b></div><p><b>換你做：</b>開一󠇡個󠇡新專案，看看畫面上是不󠇡是已經有它了。</p><div class="look"><b>👀 看一󠇡下</b>找到那塊寫著「當啟動時」的積木 → 打勾 ✅</div></div></section><section class="step" data-k="s2"><div class="hd"><span class="n">2</span><span class="t">顯示圖示</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">basic.showIcon(IconNames.Heart)</code></pre></div><p>從現成的小圖裡挑󠇡一󠇢張，畫在 25 顆燈上。</p><div class="ledplay" data-frames="[[&quot;.....\n.....\n.....\n.....\n.....&quot;, 250], [&quot;.#.#.\n#####\n#####\n.###.\n..#..&quot;, 1600]]" data-loop="0" data-repeat="0"><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="playbtn" type="button">▶️ 按一󠇡下看它動</button></div><div class="find"><span class="dot b-basic"></span>去 <b>基本</b> 抽屜（藍色的），找 <b class="bname">顯示圖示</b></div><p><b>換你做：</b>把它拖進「當啟動時」裡面，點圖案選<b>愛心</b>。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-blocks">basic.showIcon(IconNames.Heart)</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>假的那台亮出一󠇢顆愛心 ❤️</div></div></section><section class="step" data-k="s3"><div class="hd"><span class="n">3</span><span class="t">顯示指示燈</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">basic.showLeds(`
+    . . . . .
+    . . . . .
+    . . . . .
+    . . . . .
+    . . . . .
+    `)</code></pre></div><p>自己點格子󠇡畫圖——想畫什麼都可以。</p><div class="ledplay" data-frames="[[&quot;#...#\n.....\n#...#\n#...#\n.###.&quot;, 1600]]" data-loop="0" data-repeat="0"><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="playbtn" type="button">▶️ 按一󠇡下看它動</button></div><div class="find"><span class="dot b-basic"></span>去 <b>基本</b> 抽屜（藍色的），找 <b class="bname">顯示指示燈</b></div><p><b>換你做：</b>拖進「當啟動時」，在積木上的格子󠇡點出一󠇢張笑臉。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    # . . . #
+    . . . . .
+    # . . . #
+    # . . . #
+    . # # # .
+    `)</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>假的那台出現你畫的圖 😊</div></div></section><section class="step" data-k="s4"><div class="hd"><span class="n">4</span><span class="t">清空畫面</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">basic.clearScreen()</code></pre></div><p>把 25 顆燈全部關掉，畫面變黑。</p><div class="ledplay" data-frames="[[&quot;.#.#.\n#####\n#####\n.###.\n..#..&quot;, 900], [&quot;.....\n.....\n.....\n.....\n.....&quot;, 900]]" data-loop="1" data-repeat="0"><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="playbtn" type="button">▶️ 按一󠇡下看它動</button></div><div class="find"><span class="dot b-basic"></span>去 <b>基本</b> 抽屜（藍色的），找 <b class="bname">清空畫面</b></div><p><b>換你做：</b>放在「顯示圖示」的<b>下面</b>。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-blocks">basic.showIcon(IconNames.Heart)
+basic.clearScreen()</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>圖案亮一󠇡下就被擦掉了</div></div></section><section class="step" data-k="s5"><div class="hd"><span class="n">5</span><span class="t">暫停 100 毫秒</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">basic.pause(100)</code></pre></div><p>停在現在的畫面一󠇡下下，再做下一󠇡件事。<b>500 就是半秒</b>。</p><div class="ledplay" data-frames="[[&quot;.#.#.\n#####\n#####\n.###.\n..#..&quot;, 1000], [&quot;.....\n.....\n.....\n.....\n.....&quot;, 250]]" data-loop="1" data-repeat="0"><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="playbtn" type="button">▶️ 按一󠇡下看它動</button></div><div class="find"><span class="dot b-basic"></span>去 <b>基本</b> 抽屜（藍色的），找 <b class="bname">暫停 100 毫秒</b></div><p><b>換你做：</b>放在「顯示圖示」和「清空畫面」<b>中間</b>，數字改成 <code>500</code>。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-blocks">basic.showIcon(IconNames.Heart)
+basic.pause(500)
+basic.clearScreen()</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>圖案會<b>停一󠇡下</b>才被擦掉</div></div></section><section class="step" data-k="s6"><div class="hd"><span class="n">6</span><span class="t">重󠇡複無限次</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">basic.forever(function () {
+
+})</code></pre></div><p>裡面的事<b>一󠇢直做、不󠇡會停</b>。做動畫都靠它。</p><div class="ledplay" data-frames="[[&quot;#...#\n.....\n#...#\n#...#\n.###.&quot;, 500], [&quot;#...#\n.....\n#...#\n.###.\n#...#&quot;, 500]]" data-loop="1" data-repeat="0"><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="playbtn" type="button">▶️ 按一󠇡下看它動</button></div><div class="find"><span class="dot b-basic"></span><b>不󠇡用去抽屜找</b>——它跟「當啟動時」一󠇡樣，開新專案就在畫面上（它是<b>基本</b>抽屜的積木，<b>藍色</b>的）</div><p><b>換你做：</b>把兩張圖和兩個󠇡「暫停」放進去。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-blocks">basic.forever(function () {
+    basic.showIcon(IconNames.Happy)
+    basic.pause(500)
+    basic.showIcon(IconNames.Sad)
+    basic.pause(500)
+})</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>兩張圖<b>一󠇢直輪流</b>換 🎞️</div></div></section><h2>🎯 通關題</h2><section class="qcheck" data-check="learn1" data-kind="pool" data-tw="teacher"><p>這一󠇢章的積木都認識了嗎？看看這段程式：</p><div class="qv" data-v="eyJ3Ijo0LCJkIjpbWyJzdGFjayIsNl0sWyJmaXJzdCIsM11dfQ==" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    . . . # #
+    . . . # .
+    . . . . .
+    . . . . .
+    . . . . .
+    `)
+basic.pause(500)
+basic.showLeds(`
+    . # . . #
+    . . . . .
+    . . . . .
+    . . . . .
+    # . . # .
+    `)</code></pre></div><p>最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3IjowLCJkIjpbWyJub2NsZWFyIiw0XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    . . . . .
+    # . . . .
+    . . # . .
+    # . . . .
+    # . . . .
+    `)
+basic.pause(500)
+basic.clearScreen()</code></pre></div><p>最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3IjoyLCJkIjpbWyJzdGFjayIsNl0sWyJmaXJzdCIsNF1dfQ==" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    . # . # .
+    . . . # .
+    . . . . .
+    # . . . .
+    . . . . .
+    `)
+basic.pause(500)
+basic.clearScreen()
+basic.pause(500)
+basic.showLeds(`
+    . . . . .
+    . . . . .
+    . . . # #
+    . . . . .
+    . . . . .
+    `)</code></pre></div><p>最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3IjowLCJkIjpbWyJub2NsZWFyIiw0XSxbInN0YWNrIiw5XSxbImZpcnN0Iiw2XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    . . # . .
+    # . # . .
+    . # . . .
+    . . . . .
+    # . . # .
+    `)
+basic.pause(500)
+basic.showLeds(`
+    . . . . #
+    . . # . .
+    . . . # .
+    . . . . #
+    . . . . .
+    `)
+basic.pause(500)
+basic.clearScreen()</code></pre></div><p>最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3Ijo2LCJkIjpbWyJzdGFjayIsOF0sWyJmaXJzdCIsM11dfQ==" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    . # . . .
+    . . . . #
+    . . . . .
+    # . . . .
+    . . . . .
+    `)
+basic.pause(500)
+basic.showLeds(`
+    . . . . .
+    . # . # #
+    . . . . .
+    . . . # .
+    . . . # #
+    `)</code></pre></div><p>最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3Ijo1LCJkIjpbWyJzdGFjayIsMTBdLFsiZmlyc3QiLDZdXX0=" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.showLeds(`
+    # # . # #
+    . . # . .
+    . . . . .
+    . . . . .
+    . . . # .
+    `)
+basic.pause(500)
+basic.clearScreen()
+basic.pause(500)
+basic.showLeds(`
+    . . . . .
+    . . # . .
+    . # . . .
+    # . # . .
+    . . . . #
+    `)</code></pre></div><p>最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔</p></div><div class="conf"><span>先選一󠇡個󠇡：</span><button class="btn ghost" type="button" data-c="sure">😀 我有把握</button><button class="btn ghost" type="button" data-c="unsure">🤔 我不󠇡確定</button></div><div class="ansrow" hidden><input class="ans" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" aria-label="打數字"><button class="btn g go" type="button">確定</button></div><div class="fb ok" hidden>答對了 ⭐</div><div class="fb no" data-diag="stack" hidden>新的圖會<b>整個換掉</b>舊的圖，不󠇡會疊在一󠇢起喔。</div><div class="fb no" data-diag="noclear" hidden>「清空畫面」會把燈<b>全部關掉</b>喔。</div><div class="fb no" data-diag="first" hidden>後面的積木<b>也會做</b>！最後螢幕上是<b>最後那一󠇢張</b>。</div><div class="fb no" data-diag="other" hidden>一󠇡塊一󠇡塊往下看，每做完一󠇡塊就想：「螢幕<b>現在</b>長󠇡怎樣？」做完再數󠇡一󠇢數󠇡亮的燈。</div><div class="fb try" hidden>拿起板子󠇡，把這段程式拼出來做做看，看看螢幕是多少 👀</div><button class="btn ghost nextq" type="button" hidden>換一󠇢題 🔄</button><div class="fb help" hidden><b>🙋 錯兩次了，舉手請老師過來看一󠇡下。</b><div class="trow"><input class="tcode" type="password" autocomplete="off" aria-label="老師暗號"><button class="btn ghost tgo" type="button">老師</button></div></div></section><details class="adult"><summary>👩‍🏫 給大人</summary><div>通關題每次挑󠇡一󠇡個󠇡不一󠇡樣的程式，孩子󠇡要<b>先用想的</b>打出數字。打錯的數字會對到常見的錯誤想法，只給那一󠇡句提示、不公布答案，再換一󠇢題。錯兩次會停下來請他舉手：你看過之後，在框框裡打 <code>teacher</code> 就能繼續。<br>⭐⭐ 要等<b>下一󠇢章開頭</b>的暖身題答對才會亮——隔一󠇡段時間還記得󠇡，才是真的會了。<br>右下角的小圓點：🟢 順利、🟡 錯過、🔴 在等你過去、🟣 說有把握卻答錯。</div></details><h2>✅ 我學會了</h2><p>這裡不能自己勾，要<b>答對</b>上面的題目才會亮 ⭐</p><ul class="check final auto"><li data-ev="learn1"><span class="box"></span><span>⭐ 通關題答對了</span></li><li data-ev="learn1w" class="later"><span class="box"></span><span>⭐⭐ 下一󠇢章開頭還記得󠇡（暖身題）</span></li></ul><div class="nav"><a class="btn ghost" href="learn.html">← 回目錄</a><span class="sp"></span><a class="btn g" href="learn2.html">第 2 章：數字、文字、按鈕 →</a></div></main></div></div>
+<script src="app.js"></script></body></html>

@@ -20,7 +20,7 @@
    只有下面這些區塊、而且右上角「ㄅ」開關打開時（<html> 沒有 zy-off）才用。
    HTML 裡的讀音選擇器全部保留——在一般字型裡它們完全隱形（實測寬度不變）。
    想讓別的區塊也有注音，把它的 class 加進下面的 :is(…) 就好。 */
-:root:not(.zy-off) :is(.step,.gate,.dex,.quiz,.try,.check,.qcheck,.redo){
+:root:not(.zy-off) :is(.step,.gate,.dex,.quiz,.try,.check,.qcheck,.redo,.chcard h3){
   font-family:'Baloo 2','Fredoka','BpmfHuninn',"PingFang TC","Noto Sans TC",system-ui,sans-serif;
   line-height:2.2;       /* 注音在字的右邊，擠的是上下，所以拉開行距 */
 }
@@ -510,3 +510,22 @@ html[data-theme=dark] .bigcard.learn{background:linear-gradient(120deg,#14311f,#
 .mbstat[data-s="yellow"]{background:#ffb038}
 .mbstat[data-s="purple"]{background:#9b5cff}
 .mbstat[data-s="red"]{background:#ff3b5c}
+
+/* ===== 積木入門：章節目錄（2026-10-17 切章）=====
+   注音只加在章名（.chcard h3）；積木名稱那行加了會密密麻麻，跟 2026-10-07 全站太擠是同一個教訓。 */
+.chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:12px 0 22px}
+.chcard{display:block;text-decoration:none;color:var(--ink);background:var(--card);border-radius:20px;
+  padding:16px 18px;border:3px solid var(--line);box-shadow:var(--shadow);position:relative;transition:.18s}
+.chcard:hover{transform:translateY(-3px);border-color:var(--brand2)}
+.chcard .no{font-weight:800;color:var(--brand);font-size:14px}
+.chcard .em{position:absolute;right:14px;top:10px;font-size:30px}
+.chcard h3{margin:4px 0 2px;font-size:19px}
+.chcard p{margin:0;color:var(--ink2);font-size:14px}
+.chcard .stars{display:flex;gap:4px;margin-top:8px;font-style:normal}
+.chcard .stars i{font-style:normal;opacity:.25;filter:grayscale(1)}
+.chcard.got1 .s1,.chcard.got2 .s2{opacity:1;filter:none}
+.chcard.got1{border-color:var(--go)}
+.qcheck .key.kS{background:var(--accent)}
+.qcheck .key.kP{background:#b8860b;font-size:17px}
+.qcheck .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.qcheck .two .who{margin:0 0 4px;font-weight:800}

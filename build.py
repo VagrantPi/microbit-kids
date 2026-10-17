@@ -5,7 +5,7 @@
 積木文字全部對齊 makecode.microbit.org 繁體中文版的實際畫面（實測 v9.0.12）。
 要改積木文字前，請先去真的編輯器確認一次，不要憑印象寫。
 """
-import os, re, json, html
+import os, re, json, html, random
 REPO = os.path.dirname(os.path.abspath(__file__))
 
 # ===== 課程大綱（單一來源，側邊欄與首頁都從這裡長出來）=====
@@ -86,7 +86,7 @@ def lesson_no(L):
 def sidebar(cur):
     rows = ['<nav class="outline"><div class="cap">🗺️ 課程地圖</div>']
     # 圖鑑和遊戲區都不是「課」，所以不放進 LESSONS（免得課程編號跟著跑掉），單獨釘在最上面。
-    cl = " cur" if cur == "learn" else ""
+    cl = " cur" if re.fullmatch(r"learn\d*", cur) else ""   # 目錄和 learnN 章節頁都算
     rows.append(f'<a class="lrow tool{cl}" href="learn.html"><span class="em">🧱</span>'
                 f'<span>積木入門</span></a>')
     cb = " cur" if cur == "blocks" else ""
@@ -170,6 +170,7 @@ ZHUYIN_FIX = [
     ("都", "ㄉㄡ",   ["步*會"]),                 # 詞庫的「都會（城市）」會誤中「每一步都會」
     ("的", "˙ㄉㄜ", ["座標*"]),                  # 詞庫的「標的」會誤中「座標的寫法」
     ("囉", "˙ㄌㄨㄛ", ["*"]),                                           # 語尾助詞
+    ("長", "ㄓㄤˇ", ["*怎樣", "*什麼樣"]),                              # 長相；2026-10-17 審查積木入門時發現
 ]
 
 # 讀音回歸斷言：之後改教材，這些唸錯 build 就會失敗。（詞, 第幾個字, 該唸什麼）
@@ -184,6 +185,7 @@ ZHUYIN_CHECKS = [
     ("空白處", 2, "ㄔㄨˋ"), ("卡住", 0, "ㄑㄧㄚˇ"), ("卡片", 0, "ㄎㄚˇ"), ("左邊塞", 2, "ㄙㄞ"),
     ("座標的寫法", 2, "˙ㄉㄜ"), ("每一步都會", 3, "ㄉㄡ"),
     ("用香蕉當琴鍵", 3, "ㄉㄤˋ"), ("當啟動時", 0, "ㄉㄤ"), ("接不了", 2, "ㄌㄧㄠˇ"),
+    ("哪一塊長怎樣", 3, "ㄓㄤˇ"), ("長長的", 1, "ㄔㄤˊ"),
 ]
 
 def check_zhuyin():
@@ -375,7 +377,7 @@ def ts_if(cond, then=(), els=None):
     return out
 
 def ts_pin(pin, *b):      # pin: "P0" / "P1" / "P2"
-    return f"input.onPinPressed(TouchPin.{pin}, function () {{\n" + _body(b) + "\n}})"
+    return f"input.onPinPressed(TouchPin.{pin}, function () {{\n" + _body(b) + "\n})"
 
 def ts_radio_number(*b):
     return "radio.onReceivedNumber(function (receivedNumber) {\n" + _body(b) + "\n})"
@@ -575,11 +577,17 @@ def redo(intro, answer):
 def numcheck(cid, kind, program, ask, diags, after_ok=""):
     """diags：{錯誤想法代號: 一句提示}，代號要跟 app.js 的 CHECK_KINDS[kind] 對得上；
     "other" 是對不上任何錯誤想法時的提示。"""
+    head = (program + ask + '<div class="seq" aria-label="按按鈕的順序"></div>'
+            '<p>最後螢幕上是多少？<b>先用想的</b>，不要按 🤔</p>')
+    return _qcheck(cid, kind, head, diags, after_ok,
+                   "拿起板子，照上面的順序按一次，看看螢幕是多少 👀")
+
+def _qcheck(cid, kind, head, diags, after_ok="",
+            try_txt="拿起板子，把這段程式拼出來做做看，看看螢幕是多少 👀"):
+    """通關題的共用版面：head（題目）＋ 先選把握 → 打數字 → 提示／舉手。"""
     fb = "".join(f'<div class="fb no" data-diag="{k}" hidden>{v}</div>' for k, v in diags.items())
     return (f'<section class="qcheck" data-check="{cid}" data-kind="{kind}" data-tw="{TEACHER_WORD}">'
-            + program + ask
-            + '<div class="seq" aria-label="按按鈕的順序"></div>'
-            '<p>最後螢幕上是多少？<b>先用想的</b>，不要按 🤔</p>'
+            + head +
             '<div class="conf"><span>先選一個：</span>'
             '<button class="btn ghost" type="button" data-c="sure">😀 我有把握</button>'
             '<button class="btn ghost" type="button" data-c="unsure">🤔 我不確定</button></div>'
@@ -588,7 +596,7 @@ def numcheck(cid, kind, program, ask, diags, after_ok=""):
             '<button class="btn g go" type="button">確定</button></div>'
             f'<div class="fb ok" hidden>答對了 ⭐{after_ok}</div>'
             + fb +
-            '<div class="fb try" hidden>拿起板子，照上面的順序按一次，看看螢幕是多少 👀</div>'
+            f'<div class="fb try" hidden>{try_txt}</div>'
             '<button class="btn ghost nextq" type="button" hidden>換一題 🔄</button>'
             '<div class="fb help" hidden><b>🙋 錯兩次了，舉手請老師過來看一下。</b>'
             '<div class="trow"><input class="tcode" type="password" autocomplete="off" '
@@ -1216,61 +1224,614 @@ LEARN_NOFIND = {
 
 STAGE3_FROM = "led.plot"         # 從這一塊開始是第三階
 
-def build_learn():
-    cards = []
-    for i, (bid, oneline, play, todo, look_txt) in enumerate(LEARN, 1):
-        if bid == STAGE2_FROM:
-            cards.append(stage("🎵", "第二階",
-                               "第一階都認識了 🎉 這一批會在<b>第 6～10 課</b>遇到："
-                               "數得完的迴圈、問句、感測值、聲音和廣播。"))
-        if bid == STAGE3_FROM:
-            cards.append(stage("🎮", "第三階",
-                               "最後一批 🏁 這些多半是<b>做遊戲</b>才用得到的："
-                               "一顆一顆點燈、算數、且／或，還有兩台對講。"))
-        b = _block_by_id(bid)
-        title, findname = LEARN_NAME[bid]
-        body = render_dex_block(b) + f'<p>{oneline}</p>'
-        if play and play[0] == "sound":
-            body += sound_player(play[1], play[2])
-        elif play:
-            frames, loop = play[0], play[1]
-            label = play[2] if len(play) > 2 else "▶️ 按一下看它動"
-            repeat = play[3] if len(play) > 3 else 0
-            body += player(frames, loop, label, repeat)
-        else:
-            hd, txt = LEARN_NOPLAY.get(bid, (
-                "👀 這塊要配別的積木才看得到",
-                "它自己不會在燈上畫東西，所以這裡沒有播放鍵——"
-                "等一下到 MakeCode 拼起來就看得到了。"))
-            body += note(hd, txt)
-        if bid in LEARN_NOFIND:
-            body += '<div class="find">' + dot(b["cat"]) + LEARN_NOFIND[bid] + '</div>'
-        elif findname:
-            body += find(b["cat"], findname, more=b.get("more", False))
-        else:
-            body += ('<div class="find">' + dot("var") +
-                     '去 <b>變數</b> 抽屜（深紅色的）——'
-                     '要先按<b>「建立一個變數…」</b>做一個盒子，這些積木才會出現</div>')
-        body += f'<p><b>換你做：</b>{todo}</p>'
-        if bid in LEARN_ANSWER:
-            body += optional("🙈 偷看答案", LEARN_ANSWER[bid], "answer")
-        body += look(look_txt)
-        cards.append(step(i, title, body))
+# ================= 積木入門的通關題庫（2026-10-17）=================
+# 積木圖只能在頁面載入時由 MakeCode 畫，JS 沒辦法臨時換程式，所以每章在這裡先出好幾個變體，
+# 頁面上一次只秀一個，「換一題」再換另一個。
+# 每個變體同時算出「正確答案」和「每一種錯誤想法會算出的數字」：孩子打錯時，
+# 對到哪一種錯誤想法就只亮那一句提示（跟第 4 課的通關數字同一套，見 numcheck）。
+# 種子固定，所以每次 build 出來的題目都一樣，git diff 才看得懂。
 
+# ---- 小小直譯器：同一份程式（tuple 寫法）既能畫成積木，也能「照錯誤想法」跑一遍 ----
+# 敘述：("set",v,e) ("chg",v,e) ("show",e) ("if",c,then,els|None) ("rep",n,body)
+#       ("while",c,body) ("for",n,body)  ← 計次 從 0 到 n
+#       ("plot",x,y) ("unplot",x,y) ("toggle",x,y)
+# 運算：整數 | 變數名 | (op,a,b)，op 是 + - * /
+# 條件：("==",a,b) ("<",a,b) (">",a,b) ("and",c1,c2) ("or",c1,c2)
+def _ts_e(e):
+    if isinstance(e, int):
+        return str(e)
+    if isinstance(e, str):
+        return e
+    op, a, b = e
+    wrap = lambda x: f"({_ts_e(x)})" if isinstance(x, tuple) else _ts_e(x)
+    return f"{wrap(a)} {op} {wrap(b)}"
+
+def _ts_c(c):
+    op, a, b = c
+    if op in ("and", "or"):
+        return f"{_ts_c(a)} {'&&' if op == 'and' else '||'} {_ts_c(b)}"
+    return f"{_ts_e(a)} {op} {_ts_e(b)}"
+
+def _ts_prog(prog, declared=None):
+    declared = set() if declared is None else declared
+    out = []
+    for st in prog:
+        k = st[0]
+        if k == "set":
+            out.append(("let " if st[1] not in declared else "") + f"{st[1]} = {_ts_e(st[2])}")
+            declared.add(st[1])
+        elif k == "chg":
+            out.append(f"{st[1]} += {_ts_e(st[2])}")
+        elif k == "show":
+            out.append(f"basic.showNumber({_ts_e(st[1])})")
+        elif k == "if":
+            out.append(ts_if(_ts_c(st[1]), (_ts_prog(st[2], declared),),
+                             None if st[3] is None else (_ts_prog(st[3], declared),)))
+        elif k == "rep":
+            out.append(ts_repeat(st[1], _ts_prog(st[2], declared)))
+        elif k == "while":
+            out.append(f"while ({_ts_c(st[1])}) {{\n" + _body((_ts_prog(st[2], declared),)) + "\n}")
+        elif k == "for":
+            out.append(f"for (let index = 0; index <= {st[1]}; index++) {{\n"
+                       + _body((_ts_prog(st[2], declared),)) + "\n}")
+        elif k in ("plot", "unplot", "toggle"):
+            out.append(f"led.{k}({st[1]}, {st[2]})")
+    return "\n".join(out)
+
+# 錯誤想法（mode）：
+#   setadd   以為「設為」是加上去        changeset 以為「改變」是整個換掉
+#   flip     如果的條件看反了            always    沒有否則的「如果」，裡面一定會做
+#   once     重複／重複判斷只做一次      forn      計次 0 到 n 以為只做 n 次（漏了 0）
+#   le       把 ＜ 當成 ≦               andor     把「且」當成「或」   orand  把「或」當成「且」
+#   subadd / divmul / muladd  把 － 看成 ＋、／看成 ×、× 看成 ＋
+#   nounplot 以為「不點亮」沒作用        toggleon  以為「切換」一定是點亮
+#   dup      同一顆點兩次算兩顆
+def _run(prog, modes=()):
+    env, leds, shown = {}, [], [None]
+    def ev(e):
+        if isinstance(e, int):
+            return e
+        if isinstance(e, str):
+            return env.get(e, 0)
+        op, a, b = e
+        if op == "-" and "subadd" in modes: op = "+"
+        if op == "/" and "divmul" in modes: op = "*"
+        if op == "*" and "muladd" in modes: op = "+"
+        x, y = ev(a), ev(b)
+        return {"+": x + y, "-": x - y, "*": x * y, "/": x // y}[op]
+    def cond(c):
+        op, a, b = c
+        if op == "and" and "andor" in modes: op = "or"
+        elif op == "or" and "orand" in modes: op = "and"
+        if op == "and": return cond(a) and cond(b)
+        if op == "or": return cond(a) or cond(b)
+        x, y = ev(a), ev(b)
+        if op == "<": return x <= y if "le" in modes else x < y
+        if op == ">": return x > y
+        return x == y
+    def run(body):
+        for st in body:
+            k = st[0]
+            if k == "set":
+                env[st[1]] = env.get(st[1], 0) + ev(st[2]) if "setadd" in modes else ev(st[2])
+            elif k == "chg":
+                env[st[1]] = ev(st[2]) if "changeset" in modes else env.get(st[1], 0) + ev(st[2])
+            elif k == "show":
+                shown[0] = ev(st[1])
+            elif k == "if":
+                ok = cond(st[1])
+                if "flip" in modes: ok = not ok
+                if st[3] is None and "always" in modes: ok = True
+                run(st[2] if ok else (st[3] or ()))
+            elif k == "rep":
+                for _ in range(1 if "once" in modes else st[1]):
+                    run(st[2])
+            elif k == "while":
+                n = 0
+                while cond(st[1]) and n < 50:
+                    run(st[2]); n += 1
+                    if "once" in modes: break
+            elif k == "for":
+                for i in range(st[1] if "forn" in modes else st[1] + 1):
+                    env["index"] = i; run(st[2])
+            elif k == "plot":
+                if "dup" in modes or (st[1], st[2]) not in leds: leds.append((st[1], st[2]))
+            elif k == "unplot":
+                if "nounplot" not in modes: leds[:] = [p for p in leds if p != (st[1], st[2])]
+            elif k == "toggle":
+                if (st[1], st[2]) not in leds:
+                    leds.append((st[1], st[2]))
+                elif "toggleon" not in modes:      # toggleon：已經亮的也當成「點亮」，維持亮著
+                    leds[:] = [p for p in leds if p != (st[1], st[2])]
+    run(prog)
+    return {"show": shown[0], "leds": len(leds)}
+
+def _variant(prog_html, ask, want, wrong, chips=None):
+    """wrong：[(錯誤想法代號, 會算出的數字)]。跟正確答案一樣的不算錯（這題分不出來），
+    兩種錯誤想法算出同一個數字時只留第一種，提示才不會講錯。"""
+    seen, keep = {want}, []
+    for code, v in wrong:
+        if v is None or v in seen:
+            continue
+        seen.add(v); keep.append((code, v))
+    assert keep, f"這一題沒有任何錯誤想法分得出來：{ask}"
+    assert 0 <= want <= 99 and all(0 <= v <= 99 for _, v in keep), "答案要是 0～99 的整數（孩子只能打兩位數）"
+    return dict(prog=prog_html, ask=ask, want=want, wrong=keep, chips=chips)
+
+def _sim_variant(prog, ask, metric, modes, chips=None):
+    want = _run(prog)[metric]
+    return _variant(mcp(_ts_prog(prog)), ask, want,
+                    [(m, _run(prog, (m,))[metric]) for m in modes], chips)
+
+def _chip(label, cls):
+    return f'<span class="key {cls}">{label}</span>'
+
+CHIP = {"A": _chip("A", "kA"), "B": _chip("B", "kB"), "S": _chip("🤸", "kS"),
+        "P0": _chip("P0", "kP"), "P1": _chip("P1", "kP")}
+
+ASK_SHOW = "最後螢幕上是多少？<b>先用想的</b>，不要按 🤔"
+ASK_LEDS = "最後有<b>幾顆燈</b>亮著？<b>先用想的</b> 🤔"
+GENERIC = "一塊一塊往下看，每做完一塊就想：「螢幕<b>現在</b>長怎樣？」"
+
+# ---- 每一章的題目 ----
+def _pat(rng, n):
+    cells = rng.sample(range(25), n)
+    return "\n".join("".join("#" if r * 5 + c in cells else "." for c in range(5)) for r in range(5)), set(cells)
+
+def q_screen(rng):
+    """第 1 章：顯示指示燈／暫停／清空 → 最後幾顆亮。"""
+    out, shapes = [], [
+        ["P", "pause", "Q"], ["P", "pause", "clear"], ["P", "pause", "clear", "pause", "Q"],
+        ["P", "pause", "Q", "pause", "clear"], ["P", "pause", "Q"], ["P", "pause", "clear", "pause", "Q"]]
+    for shape in shapes:
+        while True:
+            p, ps = _pat(rng, rng.randint(2, 6))
+            q, qs = _pat(rng, rng.randint(2, 6))
+            if len(ps) != len(qs) and not ps <= qs:
+                break
+        ts, screen, first, union, noclear, seen_first = [], set(), None, set(), set(), False
+        for b in shape:
+            if b == "pause":
+                ts.append("basic.pause(500)")
+            elif b == "clear":
+                ts.append("basic.clearScreen()"); screen = set()
+            else:
+                cells = ps if b == "P" else qs
+                ts.append(leds_ts(p if b == "P" else q)); screen = set(cells); noclear = set(cells)
+                union |= cells
+                if not seen_first: first, seen_first = len(cells), True
+        out.append(_variant(mcp("\n".join(ts)), ASK_LEDS, len(screen),
+                            [("noclear", len(noclear)), ("stack", len(union)), ("first", first)]))
+    return out
+
+DIAG_SCREEN = {
+    "stack": "新的圖會<b>整個換掉</b>舊的圖，不會疊在一起喔。",
+    "noclear": "「清空畫面」會把燈<b>全部關掉</b>喔。",
+    "first": "後面的積木<b>也會做</b>！最後螢幕上是<b>最後那一張</b>。",
+    "other": GENERIC + "做完再數一數亮的燈。",
+}
+
+def q_events(rng):
+    """第 2 章：當啟動時／按 A／按 B／搖一搖各顯示一個數字，照操作順序 → 最後是多少。"""
+    out = []
+    for _ in range(6):
+        s, a, b, c = rng.sample(range(1, 10), 4)
+        while True:
+            acts = [rng.choice("ABS") for _ in range(rng.randint(2, 3))]
+            if acts[0] != acts[-1]:
+                break
+        val = {"A": a, "B": b, "S": c}
+        ts = ("basic.showNumber(%d)\n" % s + ts_button("A", f"basic.showNumber({a})") + "\n"
+              + ts_button("B", f"basic.showNumber({b})") + "\n"
+              + ts_gesture("Shake", f"basic.showNumber({c})"))
+        out.append(_variant(mcp(ts), "開機之後，照順序做這幾件事（🤸 是搖一搖）。" + ASK_SHOW,
+                            val[acts[-1]], [("start", s), ("topdown", c), ("first", val[acts[0]])],
+                            chips=[CHIP[x] for x in acts]))
+    return out
+
+DIAG_EVENTS = {
+    "start": "「當啟動時」只在<b>開機</b>做一次。按按鈕、搖一搖，會去做<b>那頂帽子</b>裡的事。",
+    "topdown": "帽子積木<b>不會自己跑</b>，要等你按、等你搖，才會做裡面的事。",
+    "first": "每做一件事，螢幕就<b>換一次</b>。要看的是<b>最後</b>那一件。",
+    "other": "一件一件來：做這件事時，是哪一頂帽子在動？它秀出哪個數字？",
+}
+
+def q_vars(rng):
+    """第 3 章：設為／改變／如果…否則 → 最後是多少。"""
+    out = []
+    for i in range(6):
+        a, b, c = rng.randint(1, 4), rng.randint(1, 3), rng.randint(2, 5)
+        if i % 2 == 0:
+            prog = [("set", "x", a), ("chg", "x", b), ("chg", "x", c), ("show", "x")]
+            if i == 4:
+                prog = [("set", "x", a), ("chg", "x", b), ("set", "x", 1), ("chg", "x", 1), ("show", "x")]
+        else:
+            t = a + b if i != 3 else a + b + 1
+            p, q = rng.sample(range(1, 10), 2)
+            prog = [("set", "x", a), ("chg", "x", b),
+                    ("if", ("==", "x", t), [("show", p)], [("show", q)])]
+        modes = ["setadd", "changeset", "flip"] if i % 2 == 0 else ["flip", "setadd", "changeset"]
+        out.append(_sim_variant(prog, ASK_SHOW, "show", modes))
+    return out
+
+DIAG_VARS = {
+    "setadd": "「設為」是把盒子裡的數字<b>整個換掉</b>，不是加上去喔。",
+    "changeset": "「改變」是在原本的數字上<b>再加</b>，不是整個換掉喔。",
+    "flip": "條件<b>成立</b>走「那麼」，<b>不成立</b>才走「否則」。先算出盒子裡是多少，再比一比。",
+    "other": "一塊一塊往下看，每做完一塊就想：「盒子裡<b>現在</b>是多少？」",
+}
+
+def q_loops(rng):
+    """第 4 章：重複 N 次、如果（沒有否則）、＝／＜ → 最後是多少。"""
+    out = []
+    for i in range(6):
+        n, k = rng.randint(2, 4), rng.randint(1, 2)
+        if i % 2 == 0:
+            prog = [("set", "x", 0), ("rep", n, [("chg", "x", k)]), ("show", "x")]
+        else:
+            a = rng.randint(1, 6)
+            b = a + rng.randint(1, 3) if i != 3 else a - 1
+            op = "<" if i != 5 else "=="
+            if op == "==": b = a
+            prog = [("set", "x", a), ("if", (op, "x", b), [("chg", "x", 5)], None), ("show", "x")]
+            if i == 3:
+                prog = [("set", "x", a), ("if", ("<", "x", b), [("chg", "x", 5)], None), ("show", "x")]
+        out.append(_sim_variant(prog, ASK_SHOW, "show", ["once", "flip", "always"]))
+    return out
+
+DIAG_LOOPS = {
+    "once": "「重複 N 次」會把裡面的事做 <b>N 遍</b>，不是只做一次喔。",
+    "flip": "先比一比：條件<b>成立</b>才做「如果」裡面的事。",
+    "always": "條件<b>不成立</b>的時候，「如果」裡面的事會被<b>跳過</b>。",
+    "other": "一塊一塊往下看，每做完一塊就想：「盒子裡<b>現在</b>是多少？」",
+}
+
+def q_sense(rng):
+    """第 5 章：光線／溫度＋如果否則、play tone 跟帽子一起算聲數。"""
+    out = []
+    for i, (sensor, op, th, situ, val) in enumerate([
+            ("input.lightLevel()", "<", 100, "用手把板子<b>整個蓋住</b>", 5),
+            ("input.lightLevel()", "<", 100, "拿到<b>大太陽</b>底下", 250),
+            ("input.temperature()", ">", 30, "放在<b>冷氣房</b>（大約 22 度）", 22),
+            ("input.temperature()", ">", 30, "大熱天放在<b>外面</b>（大約 35 度）", 35)]):
+        p, q = rng.sample(range(1, 10), 2)
+        ts = ts_forever(ts_if(f"{sensor} {op} {th}", (f"basic.showNumber({p})",), (f"basic.showNumber({q})",)))
+        ok = val < th if op == "<" else val > th
+        out.append(_variant(mcp(ts), f"{situ}，螢幕上是多少？<b>先用想的</b> 🤔",
+                            p if ok else q, [("flip", q if ok else p)]))
+    for _ in range(2):
+        s, k, n = rng.randint(1, 2), rng.randint(1, 3), rng.randint(2, 3)
+        ts = "\n".join([tone_ts()] * s) + "\n" + ts_button("A", *([tone_ts("中音 E")] * k))
+        out.append(_variant(mcp(ts), f"開機之後，按 A <b>{n} 下</b>。總共響了<b>幾聲</b>？<b>先用想的</b> 🤔",
+                            s + k * n, [("nostart", k * n), ("once", s + k), ("blocks", s + k)]))
+    return out
+
+DIAG_SENSE = {
+    "flip": "<b>光線</b>：越暗數字越<b>小</b>、越亮越<b>大</b>。<b>溫度</b>：就是現在幾度。先想它是多少，再比一比。",
+    "nostart": "別忘了<b>開機</b>的時候，「當啟動時」裡的聲音也會響喔。",
+    "once": "每按<b>一下</b> A，帽子裡的聲音就會<b>從頭再響一次</b>。",
+    "other": "一個一個算：開機響幾聲？每按一下 A 又響幾聲？",
+}
+
+def _two(label_a, ts_a, label_b, ts_b):
+    return (f'<div class="two"><div><p class="who">{label_a}</p>{mcp(ts_a)}</div>'
+            f'<div><p class="who">{label_b}</p>{mcp(ts_b)}</div></div>')
+
+def q_radio(rng):
+    """第 6 章：兩台的群組、發送數字、收到數字 → 乙台最後是多少。"""
+    out = []
+    for i in range(6):
+        g1 = rng.randint(1, 5)
+        g2 = g1 if i % 2 == 0 else g1 + rng.randint(1, 3)
+        n, k = rng.sample(range(1, 10), 2)
+        ta = f"radio.setGroup({g1})\n" + ts_button("A", f"radio.sendNumber({n})")
+        body = "basic.showNumber(receivedNumber)" if i < 4 else f"basic.showNumber({k})"
+        tb = f"radio.setGroup({g2})\nbasic.showNumber(0)\n" + ts_radio_number(body)
+        heard = g1 == g2
+        shown = (n if i < 4 else k) if heard else 0
+        wrong = [("nogroup", n if i < 4 else k), ("nohear", 0), ("recv", n)]
+        out.append(_variant(_two("甲板子", ta, "乙板子", tb),
+                            "按<b>甲板子</b>的 A。<b>乙板子</b>的螢幕上是多少？<b>先用想的</b> 🤔",
+                            shown, wrong))
+    return out
+
+DIAG_RADIO = {
+    "nogroup": "兩台的<b>群組號碼</b>要一樣才聽得到。號碼不一樣，乙就<b>聽不到</b>，還是開機的 0。",
+    "nohear": "兩台的群組號碼<b>一樣</b>，乙<b>聽得到</b>喔！聽到之後會做耳朵帽子裡的事。",
+    "recv": "看清楚耳朵帽子裡面：它秀的是 <code>receivedNumber</code>，還是一個固定的數字？",
+    "other": "先看兩台的群組號碼一不一樣，再看乙的耳朵帽子裡做什麼。",
+}
+
+def q_plot(rng):
+    """第 7 章：點亮／不點亮／切換 → 最後幾顆亮。"""
+    out = []
+    for i in range(6):
+        cells = rng.sample([(x, y) for x in range(5) for y in range(5)], 3)
+        a, b, c = cells
+        prog = [("plot",) + a, ("plot",) + b]
+        prog += [[("plot",) + a, ("unplot",) + b],
+                 [("toggle",) + a, ("plot",) + c],
+                 [("plot",) + c, ("unplot",) + a, ("unplot",) + c],
+                 [("toggle",) + c, ("toggle",) + b],
+                 [("unplot",) + a, ("toggle",) + a, ("plot",) + b],
+                 [("plot",) + a, ("toggle",) + b, ("unplot",) + c]][i]
+        out.append(_sim_variant(prog, ASK_LEDS, "leds", ["nounplot", "toggleon", "dup"]))
+    return out
+
+DIAG_PLOT = {
+    "nounplot": "「不點亮」會把那顆燈<b>關掉</b>喔。",
+    "toggleon": "「切換」是<b>亮的變暗、暗的變亮</b>。先看那顆燈<b>現在</b>亮不亮。",
+    "dup": "同一顆燈點<b>兩次</b>，還是只有<b>一顆</b>亮。看看 x、y 是不是一樣。",
+    "other": "一塊一塊往下看，記住每一顆燈<b>現在</b>亮不亮，最後再數一數。",
+}
+
+def q_math(rng):
+    """第 8 章：＋－×／ → 螢幕上是多少。"""
+    out = []
+    for i in range(6):
+        if i == 0:   a, b = rng.randint(6, 9), rng.randint(2, 4); e = ("-", a, b)
+        elif i == 1: b, c = rng.randint(2, 3), rng.randint(2, 4); e = ("/", b * c, b)
+        elif i == 2: a, b = rng.randint(3, 4), rng.randint(3, 4); e = ("*", a, b)
+        elif i == 3: a, b, c = rng.randint(2, 4), rng.randint(2, 3), rng.randint(1, 2); e = ("-", ("+", a, b), c)
+        elif i == 4: a, b = rng.randint(2, 3), rng.randint(2, 3); e = ("*", ("+", a, 1), b)
+        else:        b = rng.randint(2, 3); e = ("/", ("+", b * 2, b * 2), b)
+        prog = [("show", e)]
+        out.append(_sim_variant(prog, "螢幕上是多少？<b>先用想的</b>，可以拿紙算 ✏️", "show",
+                                ["subadd", "divmul", "muladd"]))
+    return out
+
+DIAG_MATH = {
+    "subadd": "<b>－</b> 是<b>減掉</b>，不是加喔。",
+    "divmul": "<b>／</b> 是<b>除以</b>（分成幾份），不是乘喔。",
+    "muladd": "<b>×</b> 是<b>乘</b>（幾個幾），不是加喔。",
+    "other": "有兩層的話，先算<b>裡面</b>那一塊，再算外面。",
+}
+
+def q_logic(rng):
+    """第 9 章：計次、重複判斷、且／或 → 最後是多少。"""
+    out = []
+    for i in range(6):
+        if i in (0, 3):
+            n = rng.randint(2, 4)
+            prog = [("set", "x", 0), ("for", n, [("chg", "x", 1)]), ("show", "x")]
+        elif i in (1, 4):
+            k = rng.randint(1, 2); n = k * rng.randint(2, 3)
+            prog = [("set", "x", 0), ("while", ("<", "x", n), [("chg", "x", k)]), ("show", "x")]
+        else:
+            x = rng.randint(2, 8)
+            p, q = rng.sample(range(1, 10), 2)
+            if i == 2:   # 且：一邊成立一邊不成立 → 不成立
+                c = ("and", (">", "x", x - 1), ("<", "x", x - 1))
+            else:        # 或：一邊成立 → 成立
+                c = ("or", (">", "x", x + 1), ("<", "x", x + 1))
+            prog = [("set", "x", x), ("if", c, [("show", p)], [("show", q)])]
+        out.append(_sim_variant(prog, ASK_SHOW, "show", ["forn", "once", "le", "andor", "orand"]))
+    return out
+
+DIAG_LOGIC = {
+    "forn": "「計次 從 0 到 4」會跑 0、1、2、3、4，是 <b>5 次</b>喔——<b>0 也算一次</b>。",
+    "once": "「重複 判斷」會<b>一直做</b>，做到條件<b>不成立</b>才停。",
+    "le": "＜ 是<b>比較小</b>。<b>一樣大</b>的時候不算比較小，就停了。",
+    "andor": "「且」要<b>兩邊都成立</b>才算成立。",
+    "orand": "「或」只要<b>其中一邊成立</b>就算成立。",
+    "other": "一塊一塊往下看，每做完一塊就想：「盒子裡<b>現在</b>是多少？」",
+}
+
+def q_touch(rng):
+    """第 10 章：當引腳 P0 被按下數次數、按鈕／引腳被按下？的問句。"""
+    out = []
+    for _ in range(3):
+        while True:
+            acts = [rng.choice(["P0", "P1"]) for _ in range(rng.randint(3, 5))]
+            if 0 < acts.count("P0") < len(acts):
+                break
+        ts = "let x = 0\n" + ts_pin("P0", "x += 1", "basic.showNumber(x)")
+        out.append(_variant(mcp(ts), "照順序碰金色的孔（另一隻手按著 GND）。" + ASK_SHOW,
+                            acts.count("P0"), [("anypin", len(acts)), ("once", 1)],
+                            chips=[CHIP[x] for x in acts]))
+    for i in range(3):
+        p, q = rng.sample(range(1, 10), 2)
+        cond = "input.buttonIsPressed(Button.A)" if i != 1 else "input.pinIsPressed(TouchPin.P0)"
+        ts = ts_forever(ts_if(cond, (f"basic.showNumber({p})",), (f"basic.showNumber({q})",)))
+        if i == 0:
+            ask, want, wrong = "<b>按住 A 不放</b>，螢幕上是多少？", p, [("flip", q)]
+        elif i == 1:
+            ask, want, wrong = "碰一下 P0 就<b>放開</b>，等一下螢幕上是多少？", q, [("stay", p)]
+        else:
+            ask, want, wrong = "按一下 A 就<b>放開</b>，等一下螢幕上是多少？", q, [("stay", p)]
+        out.append(_variant(mcp(ts), ask + "<b>先用想的</b> 🤔", want, wrong))
+    return out
+
+DIAG_TOUCH = {
+    "anypin": "這頂帽子只聽 <b>P0</b>。碰 P1 的時候，它<b>不會</b>做事。",
+    "once": "每碰<b>一下</b> P0，盒子就<b>再加 1</b>。",
+    "flip": "「按鈕 A 被按下？」是在問<b>現在</b>：按著的時候答案是「是」，走上面。",
+    "stay": "這是在<b>一直問「現在」</b>：放開之後答案變成「不是」，就會走「否則」。",
+    "other": "先想：<b>現在</b>有沒有按著？有的話走上面，沒有走下面。",
+}
+
+def q_talk(rng):
+    """第 11 章：play tone／rest 數聲音、發送文字／收到文字數字母。"""
+    out = []
+    for _ in range(3):
+        while True:
+            seq = [rng.choice("TR") for _ in range(rng.randint(4, 6))]
+            if seq.count("R") >= 1 and seq.count("T") >= 2:
+                break
+        rest = "music.rest(music.beat(BeatFraction.Whole))"
+        ts = "\n".join(tone_ts() if x == "T" else rest for x in seq)
+        out.append(_variant(mcp(ts), "開機之後，總共響了<b>幾聲</b>？<b>先用想的</b> 🤔",
+                            seq.count("T"), [("restcount", len(seq))]))
+    words = ["HI", "CAT", "DOG", "SUN", "GO", "YES"]
+    for i in range(3):
+        w = words[rng.randrange(len(words))]
+        g1 = rng.randint(1, 5); g2 = g1 if i != 1 else g1 + 1
+        ta = f"radio.setGroup({g1})\n" + ts_button("A", f'radio.sendString("{w}")')
+        tb = f"radio.setGroup({g2})\n" + ts_radio_string("basic.showString(receivedString)")
+        heard = g1 == g2
+        out.append(_variant(_two("甲板子", ta, "乙板子", tb),
+                            "按<b>甲板子</b>的 A。<b>乙板子</b>會滑過<b>幾個英文字母</b>？（沒有就打 0）",
+                            len(w) if heard else 0, [("nogroup", len(w)), ("nohear", 0)]))
+    return out
+
+DIAG_TALK = {
+    "restcount": "rest 是<b>安靜一下</b>，不會出聲，所以<b>不算</b>一聲。",
+    "nogroup": "兩台的<b>群組號碼</b>要一樣才聽得到喔。",
+    "nohear": "兩台的群組號碼<b>一樣</b>，乙<b>聽得到</b>！聽到之後會把那句話滑過去。",
+    "other": "一塊一塊看：哪幾塊會出聲？哪幾塊是安靜的？",
+}
+
+# ---- 章節表：每章從哪一塊開始（照 LEARN 的順序切）、題目、提示 ----
+LEARN_CHAPTERS = [
+    dict(first="basic.onStart",     em="🖼️", title="畫面",           q=q_screen, diags=DIAG_SCREEN),
+    dict(first="basic.showNumber",  em="🔢", title="數字、文字、按鈕", q=q_events, diags=DIAG_EVENTS),
+    dict(first="math.random",       em="📦", title="抽籤和盒子",       q=q_vars,   diags=DIAG_VARS),
+    dict(first="loop.repeat",       em="🔁", title="重複和問句",       q=q_loops,  diags=DIAG_LOOPS),
+    dict(first="event.lightLevel",  em="🌡️", title="會感覺、會出聲",   q=q_sense,  diags=DIAG_SENSE),
+    dict(first="radio.setGroup",    em="📡", title="廣播",             q=q_radio,  diags=DIAG_RADIO),
+    dict(first="led.plot",          em="💡", title="一顆一顆點燈",     q=q_plot,   diags=DIAG_PLOT),
+    dict(first="math.add",          em="➕", title="算數",             q=q_math,   diags=DIAG_MATH),
+    dict(first="logic.and",         em="🔀", title="且、或、迴圈",     q=q_logic,  diags=DIAG_LOGIC),
+    dict(first="event.onPin",       em="🖐", title="碰一碰、按住",     q=q_touch,  diags=DIAG_TOUCH),
+    dict(first="music.rest",        em="📨", title="休息、閉嘴、傳話", q=q_talk,   diags=DIAG_TALK),
+]
+STAGE_OF_CHAPTER = {1: ("🧱", "第一階"), 4: ("🎵", "第二階"), 7: ("🎮", "第三階")}
+
+def _chapter_blocks():
+    """[(章號, 章資料, [LEARN 的那幾筆])]"""
+    starts = [next(i for i, row in enumerate(LEARN) if row[0] == ch["first"]) for ch in LEARN_CHAPTERS]
+    assert starts == sorted(starts) and starts[0] == 0, "LEARN_CHAPTERS 的 first 要照 LEARN 的順序"
+    ends = starts[1:] + [len(LEARN)]
+    return [(n, ch, LEARN[a:b]) for n, (ch, a, b) in enumerate(zip(LEARN_CHAPTERS, starts, ends), 1)]
+
+def _enc(obj):
+    import base64
+    return base64.b64encode(json.dumps(obj, separators=(",", ":")).encode()).decode()
+
+def poolcheck(cid, n, intro, after_ok=""):
+    """第 n 章的通關題（cid 是紀錄的 id：learnN 或暖身的 learnNw）。"""
+    ch = LEARN_CHAPTERS[n - 1]
+    seed = sum(map(ord, cid)) * 7919
+    variants = ch["q"](random.Random(seed))
+    for v in variants:
+        bad = [c for c, _ in v["wrong"] if c not in ch["diags"]]
+        assert not bad, f"第 {n} 章的錯誤想法 {bad} 沒有寫提示（DIAG_*）"
+    vs = "".join(
+        f'<div class="qv" data-v="{_enc({"w": v["want"], "d": v["wrong"]})}" hidden>'
+        + v["prog"]
+        + (f'<div class="seq">{"".join(v["chips"])}</div>' if v["chips"] else "")
+        + f'<p>{v["ask"]}</p></div>'
+        for v in variants)
+    return _qcheck(cid, "pool", intro + vs, ch["diags"], after_ok)
+
+def _learn_card(i, row):
+    """一塊積木 = 一張步驟卡（專注模式、打勾進度都沿用 step()）。"""
+    bid, oneline, play, todo, look_txt = row
+    b = _block_by_id(bid)
+    title, findname = LEARN_NAME[bid]
+    body = render_dex_block(b) + f'<p>{oneline}</p>'
+    if play and play[0] == "sound":
+        body += sound_player(play[1], play[2])
+    elif play:
+        frames, loop = play[0], play[1]
+        label = play[2] if len(play) > 2 else "▶️ 按一下看它動"
+        repeat = play[3] if len(play) > 3 else 0
+        body += player(frames, loop, label, repeat)
+    else:
+        hd, txt = LEARN_NOPLAY.get(bid, (
+            "👀 這塊要配別的積木才看得到",
+            "它自己不會在燈上畫東西，所以這裡沒有播放鍵——"
+            "等一下到 MakeCode 拼起來就看得到了。"))
+        body += note(hd, txt)
+    if bid in LEARN_NOFIND:
+        body += '<div class="find">' + dot(b["cat"]) + LEARN_NOFIND[bid] + '</div>'
+    elif findname:
+        body += find(b["cat"], findname, more=b.get("more", False))
+    else:
+        body += ('<div class="find">' + dot("var") +
+                 '去 <b>變數</b> 抽屜（深紅色的）——'
+                 '要先按<b>「建立一個變數…」</b>做一個盒子，這些積木才會出現</div>')
+    body += f'<p><b>換你做：</b>{todo}</p>'
+    if bid in LEARN_ANSWER:
+        body += optional("🙈 偷看答案", LEARN_ANSWER[bid], "answer")
+    body += look(look_txt)
+    return step(i, title, body)
+
+# 原本 48 塊全在 learn.html 一頁，太長（2026-10-17 使用者回報）。
+# 現在 learn.html 是章節目錄，每章一頁 learnN.html，章末通關題、下一章開頭暖身（⭐⭐）。
+STAGE_TEXT = {
+    1: "最常用的一批：畫圖、數字、按鈕、盒子。",
+    4: "第一階都認識了 🎉 這一批會在<b>第 6～10 課</b>遇到：數得完的迴圈、問句、感測值、聲音和廣播。",
+    7: "最後一批 🏁 這些多半是<b>做遊戲</b>才用得到的：一顆一顆點燈、算數、且／或，還有兩台對講。",
+}
+LEARN_NOTES = (
+    note("💡 旁邊開著 MakeCode 一起做",
+         "網址 <code>makecode.microbit.org</code>，按<b>「新增專案」</b>。<br>"
+         "一邊看這頁、一邊在那邊拖，學得最快。")
+    + note("📖 這裡會用到兩個說法",
+           "<b>「假的那台」</b>＝畫面左邊那台<b>假的 micro:bit</b>，"
+           "不用真的板子也能先看效果（大人叫它模擬器）。<br>"
+           "<b>「帽子」</b>＝上面<b>沒有缺口</b>的積木，只能放最上面，像戴一頂帽子。"))
+
+LEARN_ADULT = adult(
+    "通關題每次挑一個不一樣的程式，孩子要<b>先用想的</b>打出數字。打錯的數字會對到常見的錯誤想法，"
+    "只給那一句提示、不公布答案，再換一題。錯兩次會停下來請他舉手："
+    f"你看過之後，在框框裡打 <code>{TEACHER_WORD}</code> 就能繼續。<br>"
+    "⭐⭐ 要等<b>下一章開頭</b>的暖身題答對才會亮——隔一段時間還記得，才是真的會了。<br>"
+    "右下角的小圓點：🟢 順利、🟡 錯過、🔴 在等你過去、🟣 說有把握卻答錯。")
+
+def build_learn():
+    chapters = _chapter_blocks()
+    total = len(chapters)
+    for n, ch, rows in chapters:
+        lid = f"learn{n}"
+        warm = ""
+        if n > 1:
+            warm = ('<h2>🔥 暖身：還記得上一章嗎？</h2>'
+                    + poolcheck(f"learn{n-1}w", n - 1,
+                                '<p>這是<b>上一章</b>學過的積木。<b>不用拼</b>，看著它想就好。</p>',
+                                after_ok=f"　第 {n-1} 章拿到 ⭐⭐"))
+        prev = ("learn", "回目錄") if n == 1 else (f"learn{n-1}", f"第 {n-1} 章")
+        nxt = (f"learn{n+1}", f"第 {n+1} 章：{chapters[n][1]['title']}") if n < total \
+            else ("l0", "準備篇：送進板子")
+        later = "⭐⭐ 下一章開頭還記得（暖身題）" if n < total else "⭐⭐ 準備篇開頭還記得（暖身題）"
+        body = (
+            '<div class="crumb"><a href="index.html">課程地圖</a> / '
+            f'<a href="learn.html">積木入門</a> / 第 {n} 章</div>'
+            f'<span class="eyebrow">積木入門 · 第 {n} 章</span>' + done_badge()
+            + f'<h1>{ch["em"]} {ch["title"]}</h1>'
+            + warm
+            + goal(ch["em"], f"這一章認識 <b>{len(rows)} 塊</b>積木，<b>一次一塊</b>。")
+            + (LEARN_NOTES if n == 1 else "")
+            + "".join(_learn_card(i, row) for i, row in enumerate(rows, 1))
+            + '<h2>🎯 通關題</h2>'
+            + poolcheck(lid, n, '<p>這一章的積木都認識了嗎？看看這段程式：</p>')
+            + LEARN_ADULT
+            + final_auto([("⭐ 通關題答對了", lid, False), (later, f"{lid}w", True)])
+            + nav(prev, nxt)
+        )
+        open(os.path.join(REPO, f"{lid}.html"), "w").write(
+            page(lid, body, f"積木入門 第 {n} 章：{ch['title']}", f' data-lesson="{lid}"'))
+
+    # ---- 目錄 ----
+    cards = []
+    for n, ch, rows in chapters:
+        if n in STAGE_OF_CHAPTER:
+            if cards: cards.append('</div>')
+            em, t = STAGE_OF_CHAPTER[n]
+            cards.append(stage(em, t, STAGE_TEXT[n]) + '<div class="chgrid">')
+        names = "、".join(LEARN_NAME[r[0]][0] for r in rows)
+        cards.append(f'<a class="chcard" href="learn{n}.html" data-ev="learn{n}" data-ev2="learn{n}w">'
+                     f'<span class="no">第 {n} 章</span><span class="em">{ch["em"]}</span>'
+                     f'<h3>{ch["title"]}</h3><p>{esc(names)}</p>'
+                     '<span class="stars"><i class="s1">⭐</i><i class="s2">⭐</i></span></a>')
+    cards.append('</div>')
     body = (
         '<div class="crumb"><a href="index.html">課程地圖</a> / 積木入門</div>'
-        '<span class="eyebrow">一次認識一塊</span>' + done_badge() +
+        '<span class="eyebrow">一次認識一塊</span>'
         '<h1>🧱 積木入門</h1>'
-        + goal("🧱", f"把最常用的 <b>{len(LEARN)} 塊</b>積木，<b>一次認識一塊</b>。")
-        + '<p>不用全部背起來。</p>'
-        '<p>每一塊都：<b>看它長怎樣 → 知道它會做什麼 → 自己拖一次 → 打勾</b> ✅</p>'
-        + note("💡 旁邊開著 MakeCode 一起做",
-               "網址 <code>makecode.microbit.org</code>，按<b>「新增專案」</b>。<br>"
-               "一邊看這頁、一邊在那邊拖，學得最快。")
-        + note("📖 這頁會用到兩個說法",
-               "<b>「假的那台」</b>＝畫面左邊那台<b>假的 micro:bit</b>，"
-               "不用真的板子也能先看效果（大人叫它模擬器）。<br>"
-               "<b>「帽子」</b>＝上面<b>沒有缺口</b>的積木，只能放最上面，像戴一頂帽子。")
+        + goal("🧱", f"把最常用的 <b>{len(LEARN)} 塊</b>積木分成 <b>{total} 章</b>，一章一章認識。")
+        + '<p>每一章最後有一題<b>通關題</b>，答對拿 ⭐；<b>下一章開頭</b>還答得出來，再拿一顆 ⭐⭐。</p>'
         + "".join(cards)
         + '<div class="goal win"><div class="big">🎉</div><div>'
         f'<h3>{len(LEARN)} 塊都認識了！</h3>'
@@ -1279,7 +1840,7 @@ def build_learn():
         '準備好就從<b>準備篇</b>開始闖關 🚀</p></div></div>'
         + '<div class="nav"><a class="btn ghost" href="index.html">← 回地圖</a>'
         '<span class="sp"></span>'
-        '<a class="btn g" href="l0.html">準備篇：送進板子 →</a></div>'
+        '<a class="btn g" href="learn1.html">第 1 章：畫面 →</a></div>'
     )
     open(os.path.join(REPO, "learn.html"), "w").write(
         page("learn", body, "積木入門：一次認識一塊", ' data-lesson="learn"'))
@@ -1342,6 +1903,9 @@ def build_index():
 def build_l0():
     body = (
         top("l0", "準備篇", "🔌 把程式送進 micro:bit") +
+        '<h2>🔥 暖身：還記得積木入門的最後一章嗎？</h2>'
+        + poolcheck("learn11w", 11, '<p>這是積木入門<b>第 11 章</b>學過的積木。<b>不用拼</b>，看著它想就好。</p>',
+                    after_ok="　積木入門第 11 章拿到 ⭐⭐") +
         goal("❤️", "讓<b>真的</b> micro:bit 亮出一顆愛心。") +
 
         step(1, "打開 MakeCode 網站",

@@ -1,0 +1,74 @@
+<!doctype html><html lang="zh-Hant"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>積木入門 第 10 章：碰一碰、按住</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem("mb_theme")==="dark")document.documentElement.setAttribute("data-theme","dark");if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed");if(localStorage.getItem("mb_zhuyin")==="off")document.documentElement.classList.add("zy-off")}catch(e){}</script>
+<script>document.cookie="PXT_LANG=zh-TW; path=/; max-age=31536000; SameSite=Lax"</script>
+<script async src="https://makecode.microbit.org/--embed"></script>
+</head><body data-lesson="learn10"><header class="bar"><div class="in"><button class="iconbtn" id="sideBtn" title="收合選單" aria-label="收合選單">☰</button><a class="brand" href="index.html" style="text-decoration:none"><span class="chip">micro:bit</span><span class="wm"> 積木冒險</span></a><span class="spacer"></span><button class="iconbtn" id="focusBtn" title="專注模式" aria-label="切換專注模式">🎯</button><button class="iconbtn on" id="zyBtn" title="注音" aria-label="切換注音" aria-pressed="true">ㄅ</button><button class="iconbtn" id="themeBtn" title="換個顏色" aria-label="切換深淺色">🌙</button></div></header><div class="wrap"><div class="layout"><aside class="side"><nav class="outline"><div class="cap">🗺️ 課程地圖</div><a class="lrow tool cur" href="learn.html"><span class="em">🧱</span><span>積木入門</span></a><a class="lrow tool" href="blocks.html"><span class="em">🔍</span><span>積木圖鑑</span></a><a class="lrow tool last" href="101.html"><span class="em">🎮</span><span>101 遊戲區</span></a><a class="lrow" href="l0.html"><span class="em">🔌</span><span>準備 · 送進板子󠇡</span></a><a class="lrow" href="l1.html"><span class="em">🔤</span><span>1. 認識 micro:bit</span></a><a class="lrow" href="l2.html"><span class="em">🎨</span><span>2. LED 畫畫板</span></a><a class="lrow" href="l3.html"><span class="em">🅰️</span><span>3. 按鈕魔法</span></a><a class="lrow" href="l4.html"><span class="em">🔢</span><span>4. 神奇計數器</span></a><a class="lrow" href="l5.html"><span class="em">🔁</span><span>5. 重󠇡複的力量</span></a><a class="lrow" href="l6.html"><span class="em">🎲</span><span>6. 搖一󠇢搖骰子󠇡</span></a><a class="lrow" href="l7.html"><span class="em">🦸</span><span>7. 超能力</span></a><a class="lrow" href="l8.html"><span class="em">🎵</span><span>8. 音樂󠇡盒</span></a><a class="lrow" href="l9.html"><span class="em">🏆</span><span>9. 電子寵物</span></a><a class="lrow" href="l10.html"><span class="em">📡</span><span>10. 廣播雙人</span></a><a class="lrow" href="l11.html"><span class="em">🎮</span><span>11. LED 小遊戲</span></a><a class="lrow" href="l12.html"><span class="em">🍌</span><span>12. 香蕉鋼琴</span></a></nav></aside><main class="content"><div class="crumb"><a href="index.html">課程地圖</a> / <a href="learn.html">積木入門</a> / 第 10 章</div><span class="eyebrow">積木入門 · 第 10 章</span><span id="doneBadge" class="eyebrow" style="display:none;background:var(--go);margin-left:8px">🎉 這一󠇡課完成！</span><h1>🖐 碰一󠇡碰、按住</h1><h2>🔥 暖身：還記得󠇡上一󠇢章嗎？</h2><section class="qcheck" data-check="learn9w" data-kind="pool" data-tw="teacher"><p>這是<b>上一󠇢章</b>學過的積木。<b>不󠇡用拼</b>，看著它想就好。</p><div class="qv" data-v="eyJ3Ijo1LCJkIjpbWyJmb3JuIiw0XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+for (let index = 0; index &lt;= 4; index++) {
+    x += 1
+}
+basic.showNumber(x)</code></pre></div><p>最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3Ijo0LCJkIjpbWyJvbmNlIiwyXSxbImxlIiw2XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+while (x &lt; 4) {
+    x += 2
+}
+basic.showNumber(x)</code></pre></div><p>最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3Ijo0LCJkIjpbWyJhbmRvciIsNl1dfQ==" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 4
+if (x &gt; 3 &amp;&amp; x &lt; 3) {
+    basic.showNumber(6)
+} else {
+    basic.showNumber(4)
+}</code></pre></div><p>最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3IjozLCJkIjpbWyJmb3JuIiwyXV19" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+for (let index = 0; index &lt;= 2; index++) {
+    x += 1
+}
+basic.showNumber(x)</code></pre></div><p>最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3Ijo0LCJkIjpbWyJvbmNlIiwyXSxbImxlIiw2XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+while (x &lt; 4) {
+    x += 2
+}
+basic.showNumber(x)</code></pre></div><p>最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3Ijo3LCJkIjpbWyJvcmFuZCIsMl1dfQ==" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 7
+if (x &gt; 8 || x &lt; 8) {
+    basic.showNumber(7)
+} else {
+    basic.showNumber(2)
+}</code></pre></div><p>最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="conf"><span>先選一󠇡個󠇡：</span><button class="btn ghost" type="button" data-c="sure">😀 我有把握</button><button class="btn ghost" type="button" data-c="unsure">🤔 我不󠇡確定</button></div><div class="ansrow" hidden><input class="ans" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" aria-label="打數字"><button class="btn g go" type="button">確定</button></div><div class="fb ok" hidden>答對了 ⭐　第 9 章拿到 ⭐⭐</div><div class="fb no" data-diag="forn" hidden>「計次 從 0 到 4」會跑 0、1、2、3、4，是 <b>5 次</b>喔——<b>0 也算一󠇡次</b>。</div><div class="fb no" data-diag="once" hidden>「重󠇡複 判斷」會<b>一󠇢直做</b>，做到條件<b>不成立</b>才停。</div><div class="fb no" data-diag="le" hidden>＜ 是<b>比較小</b>。<b>一󠇡樣大</b>的時候不󠇡算比較小，就停了。</div><div class="fb no" data-diag="andor" hidden>「且」要<b>兩邊都成立</b>才算成立。</div><div class="fb no" data-diag="orand" hidden>「或」只要<b>其中一󠇢邊成立</b>就算成立。</div><div class="fb no" data-diag="other" hidden>一󠇡塊一󠇡塊往下看，每做完一󠇡塊就想：「盒子󠇡裡<b>現在</b>是多少？」</div><div class="fb try" hidden>拿起板子󠇡，把這段程式拼出來做做看，看看螢幕是多少 👀</div><button class="btn ghost nextq" type="button" hidden>換一󠇢題 🔄</button><div class="fb help" hidden><b>🙋 錯兩次了，舉手請老師過來看一󠇡下。</b><div class="trow"><input class="tcode" type="password" autocomplete="off" aria-label="老師暗號"><button class="btn ghost tgo" type="button">老師</button></div></div></section><div class="goal"><div class="big">🖐</div><div><h3>今天只做一󠇡件事 🎯</h3><p>這一󠇢章認識 <b>3 塊</b>積木，<b>一󠇡次一󠇡塊</b>。</p></div></div><section class="step" data-k="s1"><div class="hd"><span class="n">1</span><span class="t">當引腳 P0 被按下</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">input.onPinPressed(TouchPin.P0, function () {
+
+})</code></pre></div><p><b>手碰到金色的孔</b>（P0）它才做。要另一󠇢隻手按著 <b>GND</b> 才有反應󠇡。</p><div class="ledplay" data-frames="[[&quot;.....\n.....\n.....\n.....\n.....&quot;, 1], [&quot;.#.#.\n#####\n#####\n.###.\n..#..&quot;, 1500]]" data-loop="0" data-repeat="0"><span class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="playbtn" type="button">🖐 摸摸看</button></div><div class="find"><span class="dot b-event"></span>去 <b>輸入</b> 抽屜（紫紅色的），找 <b class="bname">當引腳 P0 被按下</b></div><p><b>換你做：</b>拖到空󠇡白的地方，裡面放一󠇡個󠇡「顯示圖示」。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-blocks">input.onPinPressed(TouchPin.P0, function () {
+    basic.showIcon(IconNames.Heart)
+})</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>碰一󠇡下 P0 → 圖案跳出來</div></div></section><section class="step" data-k="s2"><div class="hd"><span class="n">2</span><span class="t">按鈕 A 被按下？</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">input.buttonIsPressed(Button.A)</code></pre></div><p>圓圓的<b>問句</b>：<b>現在</b>有沒有在按 A？回答「是」或「不󠇡是」。</p><div class="note"><span class="hd">❓ 圓圓的問句，答案是「是／不󠇡是」</span>它不󠇡會在燈上畫東西，要配「如果」才看得󠇡出效果。</div><div class="find"><span class="dot b-event"></span>去 <b>輸入</b> 抽屜（紫紅色的），找 <b class="bname">按鈕 A 被按下？</b></div><p><b>換你做：</b>把它拖進「如果」的六角形洞裡。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-block">if (input.buttonIsPressed(Button.A)) {
+    basic.showIcon(IconNames.Heart)
+}</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>跟「當按鈕 A 被按下」不一󠇡樣——這塊是<b>問現在</b>，不󠇡是等你按</div></div></section><section class="step" data-k="s3"><div class="hd"><span class="n">3</span><span class="t">引腳 P0 被按下？</span><span class="sbox"></span></div><div class="sbody"><div class="prog mc"><pre><code class="lang-block">input.pinIsPressed(TouchPin.P0)</code></pre></div><p>圓圓的問句：<b>現在</b>金色的孔有沒有被碰到？</p><div class="note"><span class="hd">❓ 圓圓的問句，答案是「是／不󠇡是」</span>它不󠇡會在燈上畫東西，要配「如果」才看得󠇡出效果。</div><div class="find"><span class="dot b-event"></span>去 <b>輸入</b> 抽屜（紫紅色的），找 <b class="bname">引腳 P0 被按下？</b></div><p><b>換你做：</b>把它拖進「如果」的六角形洞裡。</p><details class="optional answer"><summary>🙈 偷看答案</summary><div><div class="prog mc"><pre><code class="lang-block">if (input.pinIsPressed(TouchPin.P0)) {
+    basic.showIcon(IconNames.Heart)
+}</code></pre></div></div></details><div class="look"><b>👀 看一󠇡下</b>六角形的洞剛好被塞滿 ✅</div></div></section><h2>🎯 通關題</h2><section class="qcheck" data-check="learn10" data-kind="pool" data-tw="teacher"><p>這一󠇢章的積木都認識了嗎？看看這段程式：</p><div class="qv" data-v="eyJ3IjoxLCJkIjpbWyJhbnlwaW4iLDVdXX0=" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+input.onPinPressed(TouchPin.P0, function () {
+    x += 1
+    basic.showNumber(x)
+})</code></pre></div><div class="seq"><span class="key kP">P1</span><span class="key kP">P0</span><span class="key kP">P1</span><span class="key kP">P1</span><span class="key kP">P1</span></div><p>照順序碰金色的孔（另一󠇢隻手按著 GND）。最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3Ijo0LCJkIjpbWyJhbnlwaW4iLDVdLFsib25jZSIsMV1dfQ==" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+input.onPinPressed(TouchPin.P0, function () {
+    x += 1
+    basic.showNumber(x)
+})</code></pre></div><div class="seq"><span class="key kP">P0</span><span class="key kP">P0</span><span class="key kP">P0</span><span class="key kP">P0</span><span class="key kP">P1</span></div><p>照順序碰金色的孔（另一󠇢隻手按著 GND）。最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3IjoxLCJkIjpbWyJhbnlwaW4iLDVdXX0=" hidden><div class="prog mc"><pre><code class="lang-blocks">let x = 0
+input.onPinPressed(TouchPin.P0, function () {
+    x += 1
+    basic.showNumber(x)
+})</code></pre></div><div class="seq"><span class="key kP">P1</span><span class="key kP">P1</span><span class="key kP">P0</span><span class="key kP">P1</span><span class="key kP">P1</span></div><p>照順序碰金色的孔（另一󠇢隻手按著 GND）。最後螢幕上是多少？<b>先用想的</b>，不󠇡要按 🤔</p></div><div class="qv" data-v="eyJ3Ijo1LCJkIjpbWyJmbGlwIiw0XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.forever(function () {
+    if (input.buttonIsPressed(Button.A)) {
+        basic.showNumber(5)
+    } else {
+        basic.showNumber(4)
+    }
+})</code></pre></div><p><b>按住 A 不󠇡放</b>，螢幕上是多少？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3IjoxLCJkIjpbWyJzdGF5IiwyXV19" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.forever(function () {
+    if (input.pinIsPressed(TouchPin.P0)) {
+        basic.showNumber(2)
+    } else {
+        basic.showNumber(1)
+    }
+})</code></pre></div><p>碰一󠇡下 P0 就<b>放開</b>，等一󠇡下螢幕上是多少？<b>先用想的</b> 🤔</p></div><div class="qv" data-v="eyJ3Ijo0LCJkIjpbWyJzdGF5Iiw1XV19" hidden><div class="prog mc"><pre><code class="lang-blocks">basic.forever(function () {
+    if (input.buttonIsPressed(Button.A)) {
+        basic.showNumber(5)
+    } else {
+        basic.showNumber(4)
+    }
+})</code></pre></div><p>按一󠇡下 A 就<b>放開</b>，等一󠇡下螢幕上是多少？<b>先用想的</b> 🤔</p></div><div class="conf"><span>先選一󠇡個󠇡：</span><button class="btn ghost" type="button" data-c="sure">😀 我有把握</button><button class="btn ghost" type="button" data-c="unsure">🤔 我不󠇡確定</button></div><div class="ansrow" hidden><input class="ans" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" aria-label="打數字"><button class="btn g go" type="button">確定</button></div><div class="fb ok" hidden>答對了 ⭐</div><div class="fb no" data-diag="anypin" hidden>這頂帽子󠇡只聽 <b>P0</b>。碰 P1 的時候，它<b>不󠇡會</b>做事。</div><div class="fb no" data-diag="once" hidden>每碰<b>一󠇡下</b> P0，盒子󠇡就<b>再加 1</b>。</div><div class="fb no" data-diag="flip" hidden>「按鈕 A 被按下？」是在問<b>現在</b>：按著的時候答案是「是」，走上面。</div><div class="fb no" data-diag="stay" hidden>這是在<b>一󠇢直問「現在」</b>：放開之後答案變成「不󠇡是」，就會走「否則」。</div><div class="fb no" data-diag="other" hidden>先想：<b>現在</b>有沒有按著？有的話走上面，沒有走下面。</div><div class="fb try" hidden>拿起板子󠇡，把這段程式拼出來做做看，看看螢幕是多少 👀</div><button class="btn ghost nextq" type="button" hidden>換一󠇢題 🔄</button><div class="fb help" hidden><b>🙋 錯兩次了，舉手請老師過來看一󠇡下。</b><div class="trow"><input class="tcode" type="password" autocomplete="off" aria-label="老師暗號"><button class="btn ghost tgo" type="button">老師</button></div></div></section><details class="adult"><summary>👩‍🏫 給大人</summary><div>通關題每次挑󠇡一󠇡個󠇡不一󠇡樣的程式，孩子󠇡要<b>先用想的</b>打出數字。打錯的數字會對到常見的錯誤想法，只給那一󠇡句提示、不公布答案，再換一󠇢題。錯兩次會停下來請他舉手：你看過之後，在框框裡打 <code>teacher</code> 就能繼續。<br>⭐⭐ 要等<b>下一󠇢章開頭</b>的暖身題答對才會亮——隔一󠇡段時間還記得󠇡，才是真的會了。<br>右下角的小圓點：🟢 順利、🟡 錯過、🔴 在等你過去、🟣 說有把握卻答錯。</div></details><h2>✅ 我學會了</h2><p>這裡不能自己勾，要<b>答對</b>上面的題目才會亮 ⭐</p><ul class="check final auto"><li data-ev="learn10"><span class="box"></span><span>⭐ 通關題答對了</span></li><li data-ev="learn10w" class="later"><span class="box"></span><span>⭐⭐ 下一󠇢章開頭還記得󠇡（暖身題）</span></li></ul><div class="nav"><a class="btn ghost" href="learn9.html">← 第 9 章</a><span class="sp"></span><a class="btn g" href="learn11.html">第 11 章：休息、閉嘴、傳話 →</a></div></main></div></div>
+<script src="app.js"></script></body></html>

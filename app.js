@@ -599,27 +599,57 @@ document.querySelectorAll('.soundplay').forEach(function (box) {
 // 題目每次隨機出，答案不在頁面上；打錯的數字拿去跟「常見的錯誤想法」算出來的結果比，
 // 對到哪一個就只亮那一句提示（提示文字在 HTML 裡，build.py 才加得上注音）。
 // 錯兩次就鎖住請他舉手，老師打暗號（data-tw）才繼續。已經通關之後的練習不會再鎖。
+// 題型只負責「出一題」：next(box, 上一題的 key) 回傳 {key, want, wrong:[[錯誤想法, 數字]…], show}，
+// hide(box) 把題目收起來（通關後回到頁面時用）。其餘流程所有題型共用。
+function counterSim(seq, mode) {
+  var c = 0;
+  seq.forEach(function (k) {
+    if (k === 'A') c = mode === 'aset' ? 1 : c + 1;        // aset：以為「改變 1」是變成 1
+    else if (mode === 'bplus') c += 1;                     // bplus：以為 B 也是加
+    else if (mode !== 'bkeep') c = 0;                      // bkeep：忘了 B 會歸零
+  });
+  return c;
+}
 var CHECK_KINDS = {
-  // 第 4 課計數器：A「改變 1」＋顯示，B「設為 0」＋顯示
+  // 第 4 課計數器：A「改變 1」＋顯示，B「設為 0」＋顯示。程式固定，JS 隨機出按鍵順序。
   counter: {
-    modes: ['aset', 'bkeep', 'bplus'],     // 對應 build.py 的 COUNTER_DIAGS
-    sim: function (seq, mode) {
-      var c = 0;
-      seq.forEach(function (k) {
-        if (k === 'A') c = mode === 'aset' ? 1 : c + 1;        // aset：以為「改變 1」是變成 1
-        else if (mode === 'bplus') c += 1;                     // bplus：以為 B 也是加
-        else if (mode !== 'bkeep') c = 0;                      // bkeep：忘了 B 會歸零
-      });
-      return c;
-    },
-    gen: function () {
+    next: function (box, prev) {
       // A×(1–3)、B、[A×(1–2)、B]、A×(2–4)：最後至少兩個 A，
       // 這樣正確答案一定跟三種錯誤想法算出來的都不一樣，錯數字才分得出是哪一種。
       function a(lo, hi) { var n = lo + Math.floor(Math.random() * (hi - lo + 1)), r = []; while (n--) r.push('A'); return r; }
-      var seq = a(1, 3).concat(['B']);
-      if (Math.random() < 0.5) seq = seq.concat(a(1, 2), ['B']);
-      return seq.concat(a(2, 4));
-    }
+      var seq, tries = 0;
+      do {
+        seq = a(1, 3).concat(['B']);
+        if (Math.random() < 0.5) seq = seq.concat(a(1, 2), ['B']);
+        seq = seq.concat(a(2, 4));
+      } while (seq.join('') === prev && ++tries < 20);
+      return {
+        key: seq.join(''),
+        want: counterSim(seq, 'ok'),
+        wrong: ['aset', 'bkeep', 'bplus'].map(function (m) { return [m, counterSim(seq, m)]; }),  // 對應 COUNTER_DIAGS
+        show: function () {
+          box.querySelector('.seq').innerHTML = seq.map(function (k) {
+            return '<span class="key k' + k + '">' + k + '</span>';
+          }).join('');
+        }
+      };
+    },
+    hide: function (box) { box.querySelector('.seq').innerHTML = ''; }
+  },
+  // 積木入門：積木圖只能在載入時畫，所以 build.py 先出好幾個變體（.qv），這裡挑一個秀。
+  // data-v 是 base64 的 {w: 答案, d: [[錯誤想法, 數字]…]}——減速丘，不是鎖。
+  pool: {
+    next: function (box, prev) {
+      var vs = Array.prototype.slice.call(box.querySelectorAll('.qv'));
+      var i, tries = 0;
+      do { i = Math.floor(Math.random() * vs.length); } while (String(i) === prev && vs.length > 1 && ++tries < 20);
+      var data = JSON.parse(atob(vs[i].getAttribute('data-v')));
+      return {
+        key: String(i), want: data.w, wrong: data.d,
+        show: function () { vs.forEach(function (v, k) { v.hidden = k !== i; }); }
+      };
+    },
+    hide: function (box) { box.querySelectorAll('.qv').forEach(function (v) { v.hidden = true; }); }
   }
 };
 
@@ -628,25 +658,20 @@ document.querySelectorAll('.qcheck').forEach(function (box) {
   var kind = CHECK_KINDS[box.getAttribute('data-kind')];
   if (!id || !kind) return;
   var tw = (box.getAttribute('data-tw') || '').toLowerCase();
-  var seqEl = box.querySelector('.seq');
   var confEl = box.querySelector('.conf');
   var confBtns = Array.prototype.slice.call(box.querySelectorAll('.conf button'));
   var ansRow = box.querySelector('.ansrow');
   var ans = box.querySelector('.ans');
   var nextq = box.querySelector('.nextq');
-  var help = box.querySelector('.fb.help');
   var tcode = box.querySelector('.tcode');
-  var cur = null, conf = null, shownAt = 0, lastSeq = '';
+  var cur = null, conf = null, shownAt = 0;
 
   function hideFb() { box.querySelectorAll('.fb').forEach(function (f) { f.hidden = true; }); }
   function show(sel) { var f = box.querySelector(sel); if (f) f.hidden = false; }
 
   function newQ() {
-    var seq, tries = 0;
-    do { seq = kind.gen(); } while (seq.join('') === lastSeq && ++tries < 20);
-    lastSeq = seq.join('');
-    cur = { seq: seq, want: kind.sim(seq, 'ok') };
-    seqEl.innerHTML = seq.map(function (k) { return '<span class="key k' + k + '">' + k + '</span>'; }).join('');
+    cur = kind.next(box, cur ? cur.key : '');
+    cur.show();
     conf = null;
     confBtns.forEach(function (b) { b.classList.remove('cur'); b.disabled = false; });
     confEl.hidden = false;
@@ -680,14 +705,14 @@ document.querySelectorAll('.qcheck').forEach(function (box) {
     if (!cur || !conf || !/^\d{1,2}$/.test(v)) { ans.select(); return; }
     var n = parseInt(v, 10), ok = n === cur.want, diag = ok ? '' : 'other';
     if (!ok) {
-      for (var i = 0; i < kind.modes.length; i++) {
-        if (kind.sim(cur.seq, kind.modes[i]) === n) { diag = kind.modes[i]; break; }
+      for (var i = 0; i < cur.wrong.length; i++) {
+        if (cur.wrong[i][1] === n) { diag = cur.wrong[i][0]; break; }
       }
     }
     var ev = evGet(id);
     var practice = !!ev.pass;          // 通關後的練習：照樣記，但不鎖
     ev.tries = ev.tries || [];
-    ev.tries.push({ at: new Date().toISOString(), seq: cur.seq.join(''), conf: conf,
+    ev.tries.push({ at: new Date().toISOString(), q: cur.key, conf: conf,
                     ans: n, want: cur.want, diag: diag, ms: Date.now() - shownAt });
     ans.disabled = true;
     confBtns.forEach(function (x) { x.disabled = true; });
@@ -738,10 +763,16 @@ document.querySelectorAll('.qcheck').forEach(function (box) {
   else if (ev0.pass) {
     // 回到這頁時，通關過的直接顯示通關，想再練可以按換一題
     confEl.hidden = true;
-    seqEl.innerHTML = '';
+    kind.hide(box);
     show('.fb.ok');
     nextq.hidden = false;
   }
+});
+
+// 積木入門目錄：每一章的 ⭐（通關）和 ⭐⭐（下一章暖身）
+document.querySelectorAll('.chcard[data-ev]').forEach(function (c) {
+  c.classList.toggle('got1', !!evGet(c.getAttribute('data-ev')).pass);
+  c.classList.toggle('got2', !!evGet(c.getAttribute('data-ev2')).pass);
 });
 
 // ===== 右下角的狀態圓點（給走過去的老師瞄一眼）=====
