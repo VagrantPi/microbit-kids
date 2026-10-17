@@ -35,6 +35,27 @@ if (sb) sb.onclick = function () {
   try { localStorage.setItem('mb_side', c ? 'collapsed' : 'open'); } catch (e) {}
 };
 
+// 側邊欄的抽屜（積木入門、101 遊戲區）：▾ 開合。正在看的頁面所在的抽屜（.here）一律打開，
+// 其他抽屜記住上次的選擇。手機的側邊欄疊在內容上面，自動展開會把教材推到很下面，
+// 所以手機一律照上次的選擇（預設收起）。
+var narrow = window.matchMedia && window.matchMedia('(max-width:820px)').matches;
+document.querySelectorAll('.sgroup').forEach(function (g) {
+  var k = 'mb_sg_' + g.getAttribute('data-g');
+  var btn = g.querySelector('.scaret');
+  function set(open) {
+    g.classList.toggle('open', open);
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  if (narrow || !g.classList.contains('here')) {
+    try { set(localStorage.getItem(k) === 'open'); } catch (e) {}
+  }
+  if (btn) btn.onclick = function () {
+    var open = !g.classList.contains('open');
+    set(open);
+    try { localStorage.setItem(k, open ? 'open' : 'closed'); } catch (e) {}
+  };
+});
+
 // ===== 「做給我看」的紀錄 =====
 // 每個考題一份：mb_ev_<id> = {pass, lock, wrong, hint, tries:[{at, seq, conf, ans, want, diag, ms}]}。
 // pass 是答對過；wrong 是這次舉手前錯了幾次，老師打暗號後歸零；hint 是看過「不看步驟自己做」的提示。
@@ -179,7 +200,7 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
 // ===== 積木圖：交給 MakeCode 官方渲染器畫（外觀跟編輯器完全一樣）=====
 // head 已經先設好 PXT_LANG=zh-TW cookie，並用 async 載入 makecode.microbit.org/--embed。
 // 這裡等 runner 就緒再渲染；畫完發出 mb:blocks-ready 事件（圖鑑測驗要等 SVG 出來才能出題）。
-// 15 秒內沒畫出來（離線、被擋）就換成提示，不要把原始程式碼丟給孩子看。
+// 25 秒內沒畫出來（離線、被擋）就換成提示，不要把原始程式碼丟給孩子看。
 (function () {
   var SEL = 'code.lang-block, code.lang-blocks, code.lang-blocksxml';
   if (!document.querySelector(SEL)) return;
@@ -226,11 +247,38 @@ document.querySelectorAll('.lesson[data-lesson]').forEach(function(a){
     });
   }
 
+  // 渲染器是一塊接一塊畫的（2026-10-17 實測快取後每塊約 0.1 秒：第 3 課 6 塊 1.3 秒、圖鑑 49 塊 4.9 秒），
+  // 而且看不到的也照樣排隊——收起來的步驟卡、還沒輪到的題目、其他分頁。
+  // 所以分兩輪：先畫畫面上看得到的，再補畫藏起來的。藏起來的先把 class 改掉，renderAsync 就不會挑到它。
+  // mb:blocks-ready 還是等全部畫完才發（圖鑑測驗要拿藏起來的分頁裡的 SVG 出題）。
+  // 只延後「排在看得到的積木前面」的隱藏積木：排在後面的本來就會在看得到的之後才畫，
+  // 再多跑一輪 renderAsync 反而多花時間（圖鑑實測：看得到的分頁本來就在最前面，分兩輪全部畫完從 5.0 秒變 7.3 秒）。
+  function deferHidden() {
+    var all = Array.prototype.slice.call(document.querySelectorAll(SEL));
+    var seen = all.map(function (c) { return !!(c.closest('.mc') || c).getClientRects().length; });
+    var lastSeen = seen.lastIndexOf(true);
+    var later = [];
+    all.forEach(function (c, i) {
+      if (!seen[i] && i < lastSeen) {               // display:none 的祖先 → 現在看不到
+        c.setAttribute('data-lazy', c.className);
+        c.className = 'lazy-block';
+        later.push(c);
+      }
+    });
+    return later;
+  }
+
   function render() {
     var o = Object.assign(pxt.runner.defaultClientRenderOptions(), {
       snippetReplaceParent: true, showEdit: false, showJavaScript: false, simulator: false
     });
+    var later = [];
     registerFieldEditors().then(function () {
+      later = deferHidden();
+      return pxt.runner.renderAsync(o);
+    }).then(function () {
+      if (!later.length) return;
+      later.forEach(function (c) { c.className = c.getAttribute('data-lazy'); c.removeAttribute('data-lazy'); });
       return pxt.runner.renderAsync(o);
     }).then(function () {
       clearTimeout(timer);
@@ -766,6 +814,16 @@ document.querySelectorAll('.qcheck').forEach(function (box) {
     kind.hide(box);
     show('.fb.ok');
     nextq.hidden = false;
+  }
+});
+
+// 側邊欄的章節：通關過的後面加一顆 ⭐
+document.querySelectorAll('.lrow.sub[data-ev]').forEach(function (a) {
+  if (evGet(a.getAttribute('data-ev')).pass && !a.querySelector('.done')) {
+    var st = document.createElement('span');
+    st.className = 'done';
+    st.textContent = '⭐';
+    a.appendChild(st);
   }
 });
 

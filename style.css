@@ -1,5 +1,6 @@
 /* ===== micro:bit 積木冒險 · 給小朋友的教材 ===== */
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@500;600;700&display=swap');
+/* Baloo 2 / Fredoka 改由每頁 <head> 的 <link> 載入（build.py 的 GOOGLE_FONTS）：
+   放在這裡用 @import 要等 style.css 下載完才開始抓，整站都被拖慢。 */
 
 /* ===== 注音（2026-10-04 起全站加注音）=====
    注音粉圓：每個中文字旁邊直接帶注音（右側直排，跟課本一樣）。
@@ -8,7 +9,8 @@
    積木圖（MakeCode 的 SVG）用它自己的字型，不受這裡影響——改字型前後要比對積木尺寸。 */
 @font-face{
   font-family:'BpmfHuninn';
-  src:url('fonts/BpmfHuninn-Regular.ttf') format('truetype');
+  /* build.py 會裁成只含網站用到的字（原檔 4.5 MB → 幾百 KB），網址的 ?v= 也由 build.py 更新 */
+  src:url('fonts/BpmfHuninn-subset.woff2?v=9d963b0d') format('woff2');
   font-display:swap;
   size-adjust:112%;      /* 注音偏小，只放大用到這個字型的中文，英文數字和按鈕不受影響 */
   unicode-range:U+3000-303F,U+3105-312F,U+31A0-31BF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,
@@ -511,20 +513,31 @@ html[data-theme=dark] .bigcard.learn{background:linear-gradient(120deg,#14311f,#
 .mbstat[data-s="purple"]{background:#9b5cff}
 .mbstat[data-s="red"]{background:#ff3b5c}
 
-/* ===== 積木入門：章節目錄（2026-10-17 切章）=====
-   注音只加在章名（.chcard h3）；積木名稱那行加了會密密麻麻，跟 2026-10-07 全站太擠是同一個教訓。 */
-.chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:12px 0 22px}
-.chcard{display:block;text-decoration:none;color:var(--ink);background:var(--card);border-radius:20px;
-  padding:16px 18px;border:3px solid var(--line);box-shadow:var(--shadow);position:relative;transition:.18s}
-.chcard:hover{transform:translateY(-3px);border-color:var(--brand2)}
-.chcard .no{font-weight:800;color:var(--brand);font-size:14px}
-.chcard .em{position:absolute;right:14px;top:10px;font-size:30px}
-.chcard h3{margin:4px 0 2px;font-size:19px}
-.chcard p{margin:0;color:var(--ink2);font-size:14px}
-.chcard .stars{display:flex;gap:4px;margin-top:8px;font-style:normal}
-.chcard .stars i{font-style:normal;opacity:.25;filter:grayscale(1)}
-.chcard.got1 .s1,.chcard.got2 .s2{opacity:1;filter:none}
+/* ===== 積木入門：章節目錄（2026-10-17）=====
+   卡片本體用首頁的 .lesson，這裡只加星星。注音只加在章名（.chcard h3）；
+   積木名稱那行加了會密密麻麻，跟 2026-10-07 全站太擠是同一個教訓。 */
+.chcard .stars{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chcard .stars i{font-style:normal;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;
+  background:var(--bg2);color:var(--muted);filter:grayscale(1)}
+.chcard.got1 .s1,.chcard.got2 .s2{background:#fff1c2;color:#8a5a00;filter:none}
 .chcard.got1{border-color:var(--go)}
+:root[data-theme="dark"] .chcard.got1 .s1,:root[data-theme="dark"] .chcard.got2 .s2{background:#4a3a10;color:#ffd970}
+
+/* ===== 側邊欄的抽屜（積木入門、101 遊戲區）===== */
+.sgroup{display:flex;flex-direction:column}
+.sgroup.last{border-bottom:2px dashed var(--line);margin-bottom:5px;padding-bottom:5px}
+.shead{display:flex;align-items:center;gap:2px}
+.shead .lrow{flex:1;min-width:0}
+.scaret{flex:none;width:32px;height:32px;border:0;border-radius:10px;background:transparent;color:var(--ink2);
+  font:inherit;font-size:20px;line-height:1;cursor:pointer;transition:transform .15s,background .15s}
+.scaret:hover{background:var(--bg2)}
+.sgroup:not(.open) .scaret{transform:rotate(-90deg)}
+.ssub{display:none;flex-direction:column;gap:2px;margin:2px 0 6px 20px;padding-left:8px;border-left:2px solid var(--line)}
+.sgroup.open .ssub{display:flex}
+.lrow.sub{font-size:14px;padding:6px 8px;gap:8px}
+.lrow.sub .em{font-size:16px;width:20px}
+/* 桌機：側邊欄變長了，超過視窗高度就自己捲，不然下面幾課點不到 */
+@media(min-width:821px){ .side{max-height:calc(100vh - 96px);overflow:auto} }
 .qcheck .key.kS{background:var(--accent)}
 .qcheck .key.kP{background:#b8860b;font-size:17px}
 .qcheck .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}

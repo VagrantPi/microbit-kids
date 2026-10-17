@@ -46,6 +46,89 @@ DRAWER = {
 # ===== 小工具 =====
 def esc(s): return html.escape(str(s))
 
+# GitHub Pages 讓瀏覽器把 app.js、style.css 快取 10 分鐘（max-age=600）。部署後那 10 分鐘內，
+# 新的 HTML 會配到舊的 app.js——2026-10-17 就因此「通關題按鈕按了沒反應」（舊 app.js 不認得新題型）。
+# 所以網址後面加上檔案內容的雜湊：檔案一改網址就換，瀏覽器一定抓新的。
+def _asset(name):
+    import hashlib
+    with open(os.path.join(REPO, name), "rb") as f:
+        return f"{name}?v={hashlib.sha1(f.read()).hexdigest()[:8]}"
+
+GOOGLE_FONTS = ("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800"
+                "&family=Fredoka:wght@500;600;700&display=swap")
+
+# ===== 注音字型瘦身（2026-10-17）=====
+# 原檔 BpmfHuninn-Regular.ttf 有 4.5 MB（gzip 後還有 2.7 MB），每台電腦第一次開都要等它。
+# 全站其實只用到幾百個字，所以 build 時把字型裁成「頁面上真的出現的字」再轉成 WOFF2。
+#  - 原檔留著當來源，網頁只載入裁好的 fonts/BpmfHuninn-subset.woff2。
+#  - 破音字靠 cmap 14（異體字選擇器 U+E01E0～）和 GSUB 換字形，所以選擇器和全部排版功能都要保留。
+#  - 用到的字記在 fonts/subset-chars.txt；新內容沒有新字就不重裁，所以平常 build 不需要 fonttools。
+#    出現新字時才需要：pip install fonttools brotli
+ZHUYIN_SRC = os.path.join(REPO, "fonts", "BpmfHuninn-Regular.ttf")
+ZHUYIN_OUT = os.path.join(REPO, "fonts", "BpmfHuninn-subset.woff2")
+ZHUYIN_CHARS = os.path.join(REPO, "fonts", "subset-chars.txt")
+
+def _font_hash():
+    import hashlib
+    try:
+        with open(ZHUYIN_OUT, "rb") as f:
+            return hashlib.sha1(f.read()).hexdigest()[:8]
+    except FileNotFoundError:
+        return "0"
+
+ZHUYIN_FONT_URL = f"fonts/BpmfHuninn-subset.woff2?v={_font_hash()}"
+
+def _in_zhuyin_range(ch):
+    """跟 style.css 的 unicode-range 同一份：只有這些字會用到注音字型。"""
+    o = ord(ch)
+    return any(a <= o <= b for a, b in (
+        (0x3000, 0x303F), (0x3105, 0x312F), (0x31A0, 0x31BF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF),
+        (0xF900, 0xFAFF), (0xFE30, 0xFE4F), (0xFF00, 0xFFEF), (0x20000, 0x2FA1F)))
+
+def update_zhuyin_font():
+    """掃全站 HTML ＋ app.js 用到的字，有新字才重裁字型。回傳 True＝字型換了（頁面要重產，網址雜湊才會更新）。"""
+    import glob
+    used = set()
+    for path in glob.glob(os.path.join(REPO, "*.html")) + [os.path.join(REPO, "app.js")]:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if path.endswith(".js"):          # 註解不會顯示，不要讓它把字型撐大
+            text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+            text = re.sub(r"(?m)(^|\s)//.*$", "", text)
+        used |= {ch for ch in text if _in_zhuyin_range(ch)}
+    try:
+        with open(ZHUYIN_CHARS, encoding="utf-8") as f:
+            have = set(f.read())
+    except FileNotFoundError:
+        have = set()
+    if used <= have and os.path.exists(ZHUYIN_OUT):
+        return False
+    try:
+        from fontTools import subset
+    except ImportError:
+        raise SystemExit("頁面出現了字型裡還沒裁進去的字："
+                         + "".join(sorted(used - have))[:40]
+                         + "\n請先安裝：pip install fonttools brotli，再重跑 build.py")
+    keep = used | have
+    opts = subset.Options()
+    opts.flavor = "woff2"
+    opts.layout_features = ["*"]          # 破音字的 ss01…ss10、直排 vert 都要留
+    opts.name_IDs = ["*"]                 # 授權資訊（OFL）要跟著字型走
+    opts.notdef_outline = True
+    opts.drop_tables = []
+    font = subset.load_font(ZHUYIN_SRC, opts)
+    sub = subset.Subsetter(opts)
+    # 字本身 ＋ 注音符號、聲調 ＋ 異體字選擇器（破音字靠它挑讀音）
+    codes = {ord(c) for c in keep} | set(range(0x3105, 0x3130)) | {0x02C7, 0x02CA, 0x02CB, 0x02D9} \
+        | set(range(0xE0100, 0xE01F0))
+    sub.populate(unicodes=codes)
+    sub.subset(font)
+    font.flavor = "woff2"
+    font.save(ZHUYIN_OUT)
+    with open(ZHUYIN_CHARS, "w", encoding="utf-8") as f:
+        f.write("".join(sorted(keep)))
+    return True
+
 def head(title, blocks=False):
     """blocks=True：這頁有積木圖，要載入 MakeCode 渲染器。
     PXT_LANG cookie 必須在渲染器載入「之前」設好，不然積木會變英文（實測乾淨瀏覽器 A/B 過）。
@@ -54,10 +137,18 @@ def head(title, blocks=False):
              '<script async src="https://makecode.microbit.org/--embed"></script>\n') if blocks else ''
     return ('<!doctype html><html lang="zh-Hant"><head>\n'
             '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-            f'<title>{esc(title)}</title>\n<link rel="stylesheet" href="style.css">\n'
+            f'<title>{esc(title)}</title>\n'
+            '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+            '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+            f'<link rel="stylesheet" href="{GOOGLE_FONTS}">\n'
+            f'<link rel="stylesheet" href="{_asset("style.css")}">\n'
             '<script>try{if(localStorage.getItem("mb_theme")==="dark")document.documentElement.setAttribute("data-theme","dark");'
             'if(localStorage.getItem("mb_side")==="collapsed")document.documentElement.classList.add("side-collapsed");'
-            'if(localStorage.getItem("mb_zhuyin")==="off")document.documentElement.classList.add("zy-off")}catch(e){}</script>\n'
+            'if(localStorage.getItem("mb_zhuyin")==="off")document.documentElement.classList.add("zy-off")}catch(e){}'
+            # 注音開著才 preload：字型要等排版時才會被發現，先抓可以省一整輪等待；關著就不浪費流量
+            'if(!document.documentElement.classList.contains("zy-off")){var l=document.createElement("link");'
+            f'l.rel="preload";l.as="font";l.type="font/woff2";l.crossOrigin="anonymous";l.href="{ZHUYIN_FONT_URL}";'
+            'document.head.appendChild(l)}</script>\n'
             + embed +
             '</head>')
 
@@ -83,19 +174,36 @@ def lesson_no(L):
     """準備篇不編號，其餘從 1 開始。"""
     return "準備篇" if L["id"] == "l0" else f"第 {LESSONS.index(L)} 課"
 
+def _sgroup(key, href, em, label, cur, subs, last=False):
+    """側邊欄的抽屜：標題列連到總覽頁，右邊的 ▾ 展開底下的每一頁。
+    subs：[(頁面 id, emoji, 名字, 證據 id 或 None)]。正在看的頁面在裡面就自動展開；
+    其他時候記住孩子上次開或關（app.js 的 mb_sg_<key>）。"""
+    on_sub = any(p == cur for p, *_ in subs)
+    head_cur = " cur" if cur == href else ""
+    rows = "".join(
+        f'<a class="lrow sub{" cur" if p == cur else ""}" href="{p}.html"'
+        + (f' data-ev="{ev}"' if ev else "")
+        + f'><span class="em">{e}</span><span>{esc(t)}</span></a>'
+        for p, e, t, ev in subs)
+    cls = "sgroup" + (" open here" if on_sub or head_cur else "") + (" last" if last else "")
+    return (f'<div class="{cls}" data-g="{key}"><div class="shead">'
+            f'<a class="lrow tool{head_cur}" href="{href}.html"><span class="em">{em}</span><span>{label}</span></a>'
+            f'<button class="scaret" type="button" aria-label="展開{label}" '
+            f'aria-expanded="{"true" if on_sub or head_cur else "false"}">▾</button></div>'
+            f'<div class="ssub">{rows}</div></div>')
+
 def sidebar(cur):
     rows = ['<nav class="outline"><div class="cap">🗺️ 課程地圖</div>']
     # 圖鑑和遊戲區都不是「課」，所以不放進 LESSONS（免得課程編號跟著跑掉），單獨釘在最上面。
-    cl = " cur" if re.fullmatch(r"learn\d*", cur) else ""   # 目錄和 learnN 章節頁都算
-    rows.append(f'<a class="lrow tool{cl}" href="learn.html"><span class="em">🧱</span>'
-                f'<span>積木入門</span></a>')
+    # 積木入門和遊戲區底下各有好幾頁，做成抽屜（2026-10-17 使用者回報章節頁在側邊欄找不到）。
+    rows.append(_sgroup("learn", "learn", "🧱", "積木入門", cur,
+                        [(f"learn{n}", ch["em"], f"{n}. {ch['title']}", f"learn{n}")
+                         for n, ch in enumerate(LEARN_CHAPTERS, 1)]))
     cb = " cur" if cur == "blocks" else ""
     rows.append(f'<a class="lrow tool{cb}" href="blocks.html"><span class="em">🔍</span>'
                 f'<span>積木圖鑑</span></a>')
-    # 在任何一個遊戲頁裡，都高亮「101 遊戲區」這一列
-    cg = " cur" if cur == "101" or cur in [g["id"] for g in GAMES] else ""
-    rows.append(f'<a class="lrow tool last{cg}" href="101.html"><span class="em">🎮</span>'
-                f'<span>101 遊戲區</span></a>')
+    rows.append(_sgroup("games", "101", "🎮", "101 遊戲區", cur,
+                        [(g["id"], g["em"], g["title"], None) for g in GAMES], last=True))
     for i, L in enumerate(LESSONS):
         pre = "準備 ·" if L["id"] == "l0" else f"{i}."
         if L["status"] == "open":
@@ -292,7 +400,7 @@ def add_ivs(doc):
 def page(cur, body, title, lesson_attr=""):
     return add_ivs(head(title, blocks=True) + f'<body{lesson_attr}>' + topbar(focus_btn=True, side_btn=True) +
             '<div class="wrap"><div class="layout">' + sidebar(cur) +
-            '<main class="content">' + body + '</main></div></div>\n<script src="app.js"></script></body></html>\n')
+            '<main class="content">' + body + '</main></div></div>\n<script src="' + _asset("app.js") + '"></script></body></html>\n')
 
 # ---- 積木產生器 ----
 
@@ -1683,17 +1791,17 @@ DIAG_TALK = {
 
 # ---- 章節表：每章從哪一塊開始（照 LEARN 的順序切）、題目、提示 ----
 LEARN_CHAPTERS = [
-    dict(first="basic.onStart",     em="🖼️", title="畫面",           q=q_screen, diags=DIAG_SCREEN),
-    dict(first="basic.showNumber",  em="🔢", title="數字、文字、按鈕", q=q_events, diags=DIAG_EVENTS),
-    dict(first="math.random",       em="📦", title="抽籤和盒子",       q=q_vars,   diags=DIAG_VARS),
-    dict(first="loop.repeat",       em="🔁", title="重複和問句",       q=q_loops,  diags=DIAG_LOOPS),
-    dict(first="event.lightLevel",  em="🌡️", title="會感覺、會出聲",   q=q_sense,  diags=DIAG_SENSE),
-    dict(first="radio.setGroup",    em="📡", title="廣播",             q=q_radio,  diags=DIAG_RADIO),
-    dict(first="led.plot",          em="💡", title="一顆一顆點燈",     q=q_plot,   diags=DIAG_PLOT),
-    dict(first="math.add",          em="➕", title="算數",             q=q_math,   diags=DIAG_MATH),
-    dict(first="logic.and",         em="🔀", title="且、或、迴圈",     q=q_logic,  diags=DIAG_LOGIC),
-    dict(first="event.onPin",       em="🖐", title="碰一碰、按住",     q=q_touch,  diags=DIAG_TOUCH),
-    dict(first="music.rest",        em="📨", title="休息、閉嘴、傳話", q=q_talk,   diags=DIAG_TALK),
+    dict(first="basic.onStart",     em="🖼️", title="畫面", sub="畫圖、擦掉、停一下",           q=q_screen, diags=DIAG_SCREEN),
+    dict(first="basic.showNumber",  em="🔢", title="數字、文字、按鈕", sub="秀數字、按按鈕、搖一搖", q=q_events, diags=DIAG_EVENTS),
+    dict(first="math.random",       em="📦", title="抽籤和盒子", sub="抽籤、盒子、岔路口",       q=q_vars,   diags=DIAG_VARS),
+    dict(first="loop.repeat",       em="🔁", title="重複和問句", sub="做幾遍、問一句、比大小",       q=q_loops,  diags=DIAG_LOOPS),
+    dict(first="event.lightLevel",  em="🌡️", title="會感覺、會出聲", sub="多亮、幾度、叮一聲",   q=q_sense,  diags=DIAG_SENSE),
+    dict(first="radio.setGroup",    em="📡", title="廣播", sub="對頻道、喊出去、聽到了",             q=q_radio,  diags=DIAG_RADIO),
+    dict(first="led.plot",          em="💡", title="一顆一顆點燈", sub="點一顆、關一顆、切換",     q=q_plot,   diags=DIAG_PLOT),
+    dict(first="math.add",          em="➕", title="算數", sub="加、減、乘、除",             q=q_math,   diags=DIAG_MATH),
+    dict(first="logic.and",         em="🔀", title="且、或、迴圈", sub="而且、或是、一直做",     q=q_logic,  diags=DIAG_LOGIC),
+    dict(first="event.onPin",       em="🖐", title="碰一碰、按住", sub="碰金色的孔、按住不放",     q=q_touch,  diags=DIAG_TOUCH),
+    dict(first="music.rest",        em="📨", title="休息、閉嘴、傳話", sub="安靜、閉嘴、傳一句話", q=q_talk,   diags=DIAG_TALK),
 ]
 STAGE_OF_CHAPTER = {1: ("🧱", "第一階"), 4: ("🎵", "第二階"), 7: ("🎮", "第三階")}
 
@@ -1813,25 +1921,25 @@ def build_learn():
         open(os.path.join(REPO, f"{lid}.html"), "w").write(
             page(lid, body, f"積木入門 第 {n} 章：{ch['title']}", f' data-lesson="{lid}"'))
 
-    # ---- 目錄 ----
+    # ---- 目錄：跟首頁、101 遊戲區同一套卡片（.lesson），每階一個小標 ----
     cards = []
     for n, ch, rows in chapters:
         if n in STAGE_OF_CHAPTER:
             if cards: cards.append('</div>')
             em, t = STAGE_OF_CHAPTER[n]
-            cards.append(stage(em, t, STAGE_TEXT[n]) + '<div class="chgrid">')
-        names = "、".join(LEARN_NAME[r[0]][0] for r in rows)
-        cards.append(f'<a class="chcard" href="learn{n}.html" data-ev="learn{n}" data-ev2="learn{n}w">'
-                     f'<span class="no">第 {n} 章</span><span class="em">{ch["em"]}</span>'
-                     f'<h3>{ch["title"]}</h3><p>{esc(names)}</p>'
-                     '<span class="stars"><i class="s1">⭐</i><i class="s2">⭐</i></span></a>')
+            cards.append(f'<h2>{em} {t}</h2><p>{STAGE_TEXT[n]}</p><div class="grid">')
+        cards.append(f'<a class="lesson chcard" href="learn{n}.html" data-ev="learn{n}" data-ev2="learn{n}w">'
+                     f'<span class="no">第 {n} 章 · {len(rows)} 塊</span><span class="em">{ch["em"]}</span>'
+                     f'<h3>{ch["title"]}</h3><p>{ch["sub"]}</p>'
+                     '<span class="stars"><i class="s1">⭐ 通關</i><i class="s2">⭐⭐ 還記得</i></span></a>')
     cards.append('</div>')
     body = (
         '<div class="crumb"><a href="index.html">課程地圖</a> / 積木入門</div>'
         '<span class="eyebrow">一次認識一塊</span>'
         '<h1>🧱 積木入門</h1>'
         + goal("🧱", f"把最常用的 <b>{len(LEARN)} 塊</b>積木分成 <b>{total} 章</b>，一章一章認識。")
-        + '<p>每一章最後有一題<b>通關題</b>，答對拿 ⭐；<b>下一章開頭</b>還答得出來，再拿一顆 ⭐⭐。</p>'
+        + '<p>每一章最後有一題<b>通關題</b>，答對拿 <b>⭐ 通關</b>；'
+        '<b>下一章開頭</b>還答得出來，再拿 <b>⭐⭐ 還記得</b>。</p>'
         + "".join(cards)
         + '<div class="goal win"><div class="big">🎉</div><div>'
         f'<h3>{len(LEARN)} 塊都認識了！</h3>'
@@ -1897,7 +2005,7 @@ def build_index():
     )
     open(os.path.join(REPO, "index.html"), "w").write(add_ivs(
         head("micro:bit 積木冒險 · 給小朋友的第一堂程式課") + "<body>" + topbar() +
-        '<div class="wrap">' + body + '</div>\n<script src="app.js"></script></body></html>\n'))
+        '<div class="wrap">' + body + '</div>\n<script src="' + _asset("app.js") + '"></script></body></html>\n'))
 
 # ================= 準備篇 =================
 def build_l0():
@@ -4205,6 +4313,25 @@ def build_g3():
     write_game("g3", body, "101 遊戲：躲石頭")
 
 def main():
+    build_all()
+    if update_zhuyin_font():
+        global ZHUYIN_FONT_URL
+        ZHUYIN_FONT_URL = f"fonts/BpmfHuninn-subset.woff2?v={_font_hash()}"
+        _set_css_font_url()
+        build_all()
+        print(f"注音字型重裁：{os.path.getsize(ZHUYIN_OUT) // 1024} KB（原檔 {os.path.getsize(ZHUYIN_SRC) // 1024} KB）")
+
+def _set_css_font_url():
+    """style.css 裡的字型網址也要帶雜湊，不然字型換了，舊的那份會被快取 10 分鐘（缺新字）。"""
+    p = os.path.join(REPO, "style.css")
+    with open(p, encoding="utf-8") as f:
+        css = f.read()
+    new = re.sub(r"url\('fonts/BpmfHuninn-subset\.woff2[^']*'\)", f"url('{ZHUYIN_FONT_URL}')", css)
+    if new != css:
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(new)
+
+def build_all():
     check_zhuyin()
     # 先檢查遊戲宣告的 uses 都對得上 BLOCKS，對不上就直接失敗，
     # 免得教材寫「用了某塊」但實際沒有那塊積木。
